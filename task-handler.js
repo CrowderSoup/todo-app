@@ -97,7 +97,11 @@ class TaskHandler {
   setupTaskDragEvents() {
     // Find all task elements and attach drag event listeners
     document.querySelectorAll('.task').forEach(task => {
-      task.addEventListener('dragstart', e => this.taskDragStart(e));
+      task.addEventListener('dragstart', e => {
+        // Stop event propagation to prevent column drag from firing
+        e.stopPropagation();
+        this.taskDragStart(e);
+      });
       task.addEventListener('dragend', e => this.taskDragEnd(e));
     });
 
@@ -122,6 +126,12 @@ class TaskHandler {
       this.draggedTaskId = taskId;
       e.dataTransfer.setData('text/plain', taskId);
       e.target.classList.add('dragging');
+
+      // Set a custom drag image that properly reflects the task
+      const rect = e.target.getBoundingClientRect();
+      const offsetX = (e.clientX - rect.left);
+      const offsetY = (e.clientY - rect.top);
+      e.dataTransfer.setDragImage(e.target, offsetX, offsetY);
     } catch (error) {
       console.error('Error in taskDragStart:', error);
     }
@@ -149,7 +159,10 @@ class TaskHandler {
    */
   taskContainerDragEnter(e) {
     e.preventDefault();
-    e.currentTarget.classList.add('drag-over');
+    // Only add drag-over if we're dragging a task (not a column)
+    if (this.draggedTaskId) {
+      e.currentTarget.classList.add('drag-over');
+    }
   }
 
   /**

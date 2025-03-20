@@ -72,6 +72,30 @@ button.danger:hover {
     align-items: flex-start;
 }
 
+/* Drop zones for columns at beginning and end */
+.column-drop-zone {
+    width: 20px;
+    min-width: 20px;
+    height: calc(100vh - 150px);
+    margin: 0;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.column-drop-zone-start {
+    margin-right: 5px;
+}
+
+.column-drop-zone-end {
+    margin-left: 5px;
+}
+
+.drag-over-drop-zone {
+    background-color: var(--primary-color);
+    opacity: 0.5;
+    border-radius: 6px;
+}
+
 .column {
     background-color: #ebecf0;
     border-radius: 6px;
@@ -121,7 +145,11 @@ button.danger:hover {
     background-color: var(--secondary-color);
     color: white;
     border-radius: 6px 6px 0 0;
-    cursor: move; /* Visually indicates draggability */
+    cursor: grab; /* Visually indicates draggability */
+}
+
+.column-header:active {
+    cursor: grabbing;
 }
 
 .column-header input {
@@ -166,6 +194,19 @@ button.danger:hover {
 
 .task:active {
     cursor: grabbing;
+}
+
+/* Visual indicator for dragging tasks */
+.task.dragging {
+    opacity: 0.6;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    transform: scale(1.02);
+}
+
+/* Make task containers visually indicate when they're drag targets */
+.tasks.drag-over {
+    background-color: rgba(74, 111, 165, 0.1);
+    border: 1px dashed var(--primary-color);
 }
 
 .task-title {

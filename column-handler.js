@@ -129,6 +129,122 @@ class ColumnHandler {
       column.addEventListener('dragover', e => e.preventDefault());
       column.addEventListener('drop', e => this.columnDrop(e));
     });
+
+    // Add edge drop zones for beginning and end of the list
+    this.setupEdgeDropZones();
+  }
+
+  /**
+   * Create drop zones at the beginning and end of the column list
+   */
+  setupEdgeDropZones() {
+    const board = this.app.boardElement;
+
+    // Get all columns
+    const columns = Array.from(board.querySelectorAll('.column'));
+    if (columns.length === 0) return;
+
+    // Create drop zone at the beginning of the list
+    const firstDropZone = document.createElement('div');
+    firstDropZone.className = 'column-drop-zone column-drop-zone-start';
+    firstDropZone.dataset.position = 'start';
+
+    // Create drop zone at the end of the list
+    const lastDropZone = document.createElement('div');
+    lastDropZone.className = 'column-drop-zone column-drop-zone-end';
+    lastDropZone.dataset.position = 'end';
+
+    // Add event listeners to the drop zones
+    [firstDropZone, lastDropZone].forEach(zone => {
+      zone.addEventListener('dragenter', e => {
+        e.preventDefault();
+        zone.classList.add('drag-over-drop-zone');
+      });
+
+      zone.addEventListener('dragleave', e => {
+        if (!e.relatedTarget || !zone.contains(e.relatedTarget)) {
+          zone.classList.remove('drag-over-drop-zone');
+        }
+      });
+
+      zone.addEventListener('dragover', e => e.preventDefault());
+
+      zone.addEventListener('drop', e => this.edgeZoneDrop(e));
+    });
+
+    // Add the drop zones to the board
+    board.insertBefore(firstDropZone, columns[0]);
+    board.appendChild(lastDropZone);
+  }
+
+  /**
+   * Handle drop in edge zones (start or end)
+   * @param {DragEvent} e - The drop event
+   */
+  edgeZoneDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const zone = e.currentTarget;
+    zone.classList.remove('drag-over-drop-zone');
+
+    // Get the column ID from the drag event
+    let columnId = null;
+    if (e.dataTransfer) {
+      columnId = e.dataTransfer.getData('text/plain');
+    }
+
+    // Fall back to stored ID if needed
+    if (!columnId && this.draggedColumnId) {
+      columnId = this.draggedColumnId;
+    }
+
+    if (!columnId) return;
+
+    // Find the source column
+    const sourceColumn = this.app.data.columns.find(c => c.id === columnId);
+    if (!sourceColumn) return;
+
+    // Get the current order and the target position
+    const sourceOrder = sourceColumn.order;
+    const position = zone.dataset.position;
+
+    if (position === 'start') {
+      // Move to the beginning of the list
+      if (sourceOrder === 0) return; // Already at the beginning
+
+      // Update orders - move all columns up one slot
+      this.app.data.columns.forEach(column => {
+        if (column.order < sourceOrder) {
+          column.order++;
+        }
+      });
+
+      // Set source column to the first position
+      sourceColumn.order = 0;
+    }
+    else if (position === 'end') {
+      // Move to the end of the list
+      const lastOrder = this.app.data.columns.length - 1;
+      if (sourceOrder === lastOrder) return; // Already at the end
+
+      // Update orders - move down as needed
+      this.app.data.columns.forEach(column => {
+        if (column.order > sourceOrder) {
+          column.order--;
+        }
+      });
+
+      // Set source column to the last position
+      sourceColumn.order = lastOrder;
+    }
+
+    // Sort columns by their new order
+    this.app.data.columns.sort((a, b) => a.order - b.order);
+
+    // Save changes and redraw the board
+    this.app.saveToLocalStorage();
+    this.app.renderBoard();
   }
 
   /**
@@ -178,6 +294,11 @@ class ColumnHandler {
     document.querySelectorAll('.column').forEach(col => {
       col.classList.remove('drag-over-column-left');
       col.classList.remove('drag-over-column-right');
+    });
+
+    // Remove indicators from edge drop zones
+    document.querySelectorAll('.column-drop-zone').forEach(zone => {
+      zone.classList.remove('drag-over-drop-zone');
     });
   }
 
