@@ -13,18 +13,22 @@
             <button id="add-column-btn">Add Column</button>
         </header>
         
-        <div class="kanban-board" id="kanban-board">
-            <!-- Columns will be added here -->
-        </div>
-        
-        <div class="unassigned-container">
+        <!-- Collapsible Unassigned Tasks section moved above kanban board -->
+        <div class="unassigned-container collapsed">
             <div class="unassigned-header">
-                <h3>Unassigned Tasks</h3>
+                <div class="unassigned-title">
+                    <span class="collapse-icon">▶</span>
+                    <h3>Unassigned Tasks</h3>
+                </div>
                 <button id="add-unassigned-task">Add Task</button>
             </div>
             <div class="unassigned-tasks tasks" data-column-id="unassigned">
                 <!-- Unassigned tasks will be added here -->
             </div>
+        </div>
+        
+        <div class="kanban-board" id="kanban-board">
+            <!-- Columns will be added here -->
         </div>
     </div>
     

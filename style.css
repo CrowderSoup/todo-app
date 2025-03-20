@@ -68,15 +68,16 @@ button.danger:hover {
     overflow-x: auto;
     gap: 20px;
     padding-bottom: 20px;
-    min-height: calc(100vh - 150px);
+    min-height: calc(100vh - 220px); /* Adjusted for unassigned section */
     align-items: flex-start;
+    margin-top: 20px;
 }
 
 /* Drop zones for columns at beginning and end */
 .column-drop-zone {
     width: 20px;
     min-width: 20px;
-    height: calc(100vh - 150px);
+    height: calc(100vh - 220px); /* Adjusted for unassigned section */
     margin: 0;
     position: relative;
     transition: background-color 0.2s ease;
@@ -180,6 +181,11 @@ button.danger:hover {
     flex-grow: 1;
     overflow-y: auto;
     min-height: 100px;
+}
+
+/* Override min-height for unassigned tasks when collapsed */
+.unassigned-container.collapsed .tasks {
+    min-height: 0;
 }
 
 .task {
@@ -406,25 +412,69 @@ button.danger:hover {
     z-index: 100;
 }
 
-/* Unassigned tasks section */
+/* Unassigned tasks section styling */
 .unassigned-container {
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid #ddd;
+    background-color: #ebecf0;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: all 0.3s ease;
 }
 
 .unassigned-tasks {
-    background-color: #ebecf0;
-    border-radius: 6px;
     padding: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+    transition: all 0.3s ease;
+    visibility: visible;
+    border-top: 1px solid #ddd;
 }
 
 .unassigned-header {
+    padding: 10px 15px;
     font-weight: bold;
-    margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background-color: var(--secondary-color);
+    color: white;
+    border-radius: 6px 6px 0 0;
+}
+
+.unassigned-container.collapsed .unassigned-header {
+    border-radius: 6px;
+}
+
+.unassigned-title {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.collapse-icon {
+    margin-right: 8px;
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+/* Collapsed state styles */
+.unassigned-container.collapsed .unassigned-tasks {
+    max-height: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    border-top: none;
+    visibility: hidden;
+}
+
+.unassigned-container.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.unassigned-container.collapsed {
+    margin-bottom: 10px;
+    border-radius: 6px;
 }
 
 /* Responsive design */

@@ -8,7 +8,8 @@ class KanbanApp {
     this.data = {
       columns: [],
       tasks: [],
-      unassignedTasks: []
+      unassignedTasks: [],
+      unassignedCollapsed: true // New property to track collapsed state
     };
 
     // Initialize handlers
@@ -17,7 +18,10 @@ class KanbanApp {
 
     // Initialize DOM elements
     this.boardElement = document.getElementById('kanban-board');
+    this.unassignedContainer = document.querySelector('.unassigned-container');
     this.unassignedTasksElement = document.querySelector('.unassigned-tasks');
+    this.unassignedTitleElement = document.querySelector('.unassigned-title');
+    this.collapseIcon = document.querySelector('.collapse-icon');
 
     // Initialize buttons
     this.addColumnBtn = document.getElementById('add-column-btn');
@@ -42,6 +46,9 @@ class KanbanApp {
 
     // Render initial board
     this.renderBoard();
+
+    // Apply collapsed state
+    this.applyCollapsedState();
   }
 
   /**
@@ -59,8 +66,31 @@ class KanbanApp {
     this.taskForm.addEventListener('submit', (e) => this.saveTask(e));
     this.deleteTaskBtn.addEventListener('click', () => this.deleteTask());
 
+    // Collapsible unassigned tasks
+    this.unassignedTitleElement.addEventListener('click', () => this.toggleUnassignedCollapse());
+
     // Ensure dragover events are always handled to allow drops
     document.addEventListener('dragover', (e) => e.preventDefault());
+  }
+
+  /**
+   * Toggle collapsed state of unassigned tasks
+   */
+  toggleUnassignedCollapse() {
+    this.data.unassignedCollapsed = !this.data.unassignedCollapsed;
+    this.applyCollapsedState();
+    this.saveToLocalStorage();
+  }
+
+  /**
+   * Apply the collapsed state to the UI
+   */
+  applyCollapsedState() {
+    if (this.data.unassignedCollapsed) {
+      this.unassignedContainer.classList.add('collapsed');
+    } else {
+      this.unassignedContainer.classList.remove('collapsed');
+    }
   }
 
   /**
@@ -70,6 +100,11 @@ class KanbanApp {
     const savedData = localStorage.getItem('kanbanData');
     if (savedData) {
       this.data = JSON.parse(savedData);
+
+      // Add unassignedCollapsed property if it doesn't exist (for backward compatibility)
+      if (this.data.unassignedCollapsed === undefined) {
+        this.data.unassignedCollapsed = true; // Default to collapsed
+      }
     } else {
       // Initialize with order if it's a fresh start
       this.data.columns.forEach((column, index) => {
@@ -116,6 +151,9 @@ class KanbanApp {
     // Render unassigned tasks
     this.renderUnassignedTasks();
 
+    // Apply collapsed state
+    this.applyCollapsedState();
+
     // Set up drag and drop after rendering
     this.setupDragAndDrop();
   }
@@ -133,6 +171,14 @@ class KanbanApp {
       const taskElement = this.taskHandler.createTaskElement(task);
       this.unassignedTasksElement.appendChild(taskElement);
     });
+
+    // Update unassigned tasks count in the header
+    const taskCount = this.data.unassignedTasks.length;
+    if (taskCount > 0) {
+      document.querySelector('.unassigned-title h3').textContent = `Unassigned Tasks (${taskCount})`;
+    } else {
+      document.querySelector('.unassigned-title h3').textContent = 'Unassigned Tasks';
+    }
   }
 
   /**
@@ -319,6 +365,12 @@ class KanbanApp {
           const updatedTask = { ...task, ...taskData, id: taskId };
           this.data.tasks.push(updatedTask);
           this.data.unassignedTasks = this.data.unassignedTasks.filter(t => t.id !== taskId);
+
+          // Expand unassigned section if it now has tasks
+          if (this.data.unassignedTasks.length > 0 && this.data.unassignedCollapsed) {
+            this.data.unassignedCollapsed = false;
+            this.applyCollapsedState();
+          }
         }
       } else if (isMovingToUnassigned) {
         // Move from column to unassigned
@@ -327,6 +379,12 @@ class KanbanApp {
           const updatedTask = { ...task, ...taskData, id: taskId, columnId: null };
           this.data.unassignedTasks.push(updatedTask);
           this.data.tasks = this.data.tasks.filter(t => t.id !== taskId);
+
+          // Auto-expand unassigned section if it was collapsed
+          if (this.data.unassignedCollapsed) {
+            this.data.unassignedCollapsed = false;
+            this.applyCollapsedState();
+          }
         }
       } else if (isMovingToColumn) {
         // Update task in column
@@ -344,6 +402,12 @@ class KanbanApp {
 
       if (isUnassigned) {
         this.data.unassignedTasks.push(newTask);
+
+        // Auto-expand unassigned section when adding a new task
+        if (this.data.unassignedCollapsed) {
+          this.data.unassignedCollapsed = false;
+          this.applyCollapsedState();
+        }
       } else {
         this.data.tasks.push(newTask);
       }

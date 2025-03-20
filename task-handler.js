@@ -162,6 +162,12 @@ class TaskHandler {
     // Only add drag-over if we're dragging a task (not a column)
     if (this.draggedTaskId) {
       e.currentTarget.classList.add('drag-over');
+
+      // Auto-expand unassigned section if dragging over it while collapsed
+      if (e.currentTarget.dataset.columnId === 'unassigned' &&
+        this.app.unassignedContainer.classList.contains('collapsed')) {
+        this.app.toggleUnassignedCollapse();
+      }
     }
   }
 
