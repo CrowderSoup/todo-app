@@ -1,0 +1,369 @@
+// Main application file for Kanban Todo App
+import { generateId } from './utils.js';
+import TaskHandler from './task-handler.js';
+import ColumnHandler from './column-handler.js';
+
+class KanbanApp {
+  constructor() {
+    this.data = {
+      columns: [],
+      tasks: [],
+      unassignedTasks: []
+    };
+
+    // Initialize handlers
+    this.taskHandler = new TaskHandler(this);
+    this.columnHandler = new ColumnHandler(this);
+
+    // Initialize DOM elements
+    this.boardElement = document.getElementById('kanban-board');
+    this.unassignedTasksElement = document.querySelector('.unassigned-tasks');
+
+    // Initialize buttons
+    this.addColumnBtn = document.getElementById('add-column-btn');
+    this.addUnassignedTaskBtn = document.getElementById('add-unassigned-task');
+
+    // Initialize modals
+    this.taskModalOverlay = document.getElementById('task-modal-overlay');
+    this.columnModalOverlay = document.getElementById('column-modal-overlay');
+    this.closeTaskModalBtn = document.getElementById('close-modal');
+    this.closeColumnModalBtn = document.getElementById('close-column-modal');
+
+    // Initialize forms
+    this.taskForm = document.getElementById('task-form');
+    this.columnForm = document.getElementById('column-form');
+    this.deleteTaskBtn = document.getElementById('delete-task-btn');
+
+    // Bind event listeners
+    this.bindEvents();
+
+    // Load data from local storage
+    this.loadFromLocalStorage();
+
+    // Render initial board
+    this.renderBoard();
+  }
+
+  /**
+   * Bind event listeners to DOM elements
+   */
+  bindEvents() {
+    // Column events
+    this.addColumnBtn.addEventListener('click', () => this.openColumnModal());
+    this.closeColumnModalBtn.addEventListener('click', () => this.closeColumnModal());
+    this.columnForm.addEventListener('submit', (e) => this.saveColumn(e));
+
+    // Task events
+    this.addUnassignedTaskBtn.addEventListener('click', () => this.openTaskModal('unassigned'));
+    this.closeTaskModalBtn.addEventListener('click', () => this.closeTaskModal());
+    this.taskForm.addEventListener('submit', (e) => this.saveTask(e));
+    this.deleteTaskBtn.addEventListener('click', () => this.deleteTask());
+
+    // Ensure dragover events are always handled to allow drops
+    document.addEventListener('dragover', (e) => e.preventDefault());
+  }
+
+  /**
+   * Load data from localStorage
+   */
+  loadFromLocalStorage() {
+    const savedData = localStorage.getItem('kanbanData');
+    if (savedData) {
+      this.data = JSON.parse(savedData);
+    } else {
+      // Initialize with order if it's a fresh start
+      this.data.columns.forEach((column, index) => {
+        column.order = index;
+      });
+    }
+
+    // Sort columns by order if they have order property
+    if (this.data.columns.length > 0 && this.data.columns[0].hasOwnProperty('order')) {
+      this.data.columns.sort((a, b) => a.order - b.order);
+    } else {
+      // Add order property if it doesn't exist
+      this.data.columns.forEach((column, index) => {
+        column.order = index;
+      });
+    }
+  }
+
+  /**
+   * Save data to localStorage
+   */
+  saveToLocalStorage() {
+    localStorage.setItem('kanbanData', JSON.stringify(this.data));
+  }
+
+  /**
+   * Render the entire board
+   */
+  renderBoard() {
+    console.log('Setting up drag and drop');
+
+    // Clear existing board
+    this.boardElement.innerHTML = '';
+
+    // Sort columns by order
+    this.data.columns.sort((a, b) => a.order - b.order);
+
+    // Render columns
+    this.data.columns.forEach(column => {
+      const columnElement = this.columnHandler.createColumnElement(column);
+      this.boardElement.appendChild(columnElement);
+    });
+
+    // Render unassigned tasks
+    this.renderUnassignedTasks();
+
+    // Set up drag and drop after rendering
+    this.setupDragAndDrop();
+  }
+
+  /**
+   * Render unassigned tasks
+   */
+  renderUnassignedTasks() {
+    this.unassignedTasksElement.innerHTML = '';
+
+    // Get and sort unassigned tasks
+    const sortedUnassignedTasks = this.columnHandler.sortTasks(this.data.unassignedTasks);
+
+    sortedUnassignedTasks.forEach(task => {
+      const taskElement = this.taskHandler.createTaskElement(task);
+      this.unassignedTasksElement.appendChild(taskElement);
+    });
+  }
+
+  /**
+   * Set up drag and drop events after rendering
+   */
+  setupDragAndDrop() {
+    // Set up task drag and drop
+    this.taskHandler.setupTaskDragEvents();
+
+    // Set up column drag and drop
+    this.columnHandler.setupColumnDragEvents();
+  }
+
+  /**
+   * Open column modal for adding or editing
+   * @param {string} columnId - The ID of the column to edit (optional)
+   */
+  openColumnModal(columnId = null) {
+    const modalTitle = document.getElementById('column-modal-title');
+    const columnTitleInput = document.getElementById('column-title');
+    const columnFormId = document.getElementById('column-form-id');
+
+    if (columnId) {
+      // Edit existing column
+      const column = this.data.columns.find(col => col.id === columnId);
+      if (!column) return;
+
+      modalTitle.textContent = 'Edit Column';
+      columnTitleInput.value = column.title;
+      columnFormId.value = columnId;
+    } else {
+      // Add new column
+      modalTitle.textContent = 'Add Column';
+      columnTitleInput.value = '';
+      columnFormId.value = '';
+    }
+
+    this.columnModalOverlay.style.display = 'flex';
+  }
+
+  /**
+   * Close column modal
+   */
+  closeColumnModal() {
+    this.columnModalOverlay.style.display = 'none';
+    this.columnForm.reset();
+  }
+
+  /**
+   * Save column from form data
+   * @param {Event} e - The form submit event
+   */
+  saveColumn(e) {
+    e.preventDefault();
+
+    const columnTitle = document.getElementById('column-title').value;
+    const columnId = document.getElementById('column-form-id').value;
+
+    if (columnId) {
+      // Update existing column
+      const column = this.data.columns.find(col => col.id === columnId);
+      if (column) {
+        column.title = columnTitle;
+      }
+    } else {
+      // Add new column
+      const highestOrder = this.data.columns.length > 0
+        ? Math.max(...this.data.columns.map(c => c.order))
+        : -1;
+
+      const newColumn = {
+        id: generateId(),
+        title: columnTitle,
+        order: highestOrder + 1
+      };
+
+      this.data.columns.push(newColumn);
+    }
+
+    this.saveToLocalStorage();
+    this.renderBoard();
+    this.closeColumnModal();
+  }
+
+  /**
+   * Open task modal for adding or editing
+   * @param {string} columnId - The column ID for the task
+   * @param {string} taskId - The ID of the task to edit (optional)
+   */
+  openTaskModal(columnId, taskId = null) {
+    const modalTitle = document.getElementById('modal-title');
+    const taskTitleInput = document.getElementById('task-title');
+    const taskDescriptionInput = document.getElementById('task-description');
+    const taskDueDateInput = document.getElementById('task-due-date');
+    const taskPrioritySelect = document.getElementById('task-priority');
+    const taskIdInput = document.getElementById('task-id');
+    const columnIdInput = document.getElementById('column-id');
+
+    if (taskId) {
+      // Find the task in either tasks or unassignedTasks
+      let task = this.data.tasks.find(t => t.id === taskId);
+
+      if (!task) {
+        task = this.data.unassignedTasks.find(t => t.id === taskId);
+      }
+
+      if (!task) return;
+
+      // Edit existing task
+      modalTitle.textContent = 'Edit Task';
+      taskTitleInput.value = task.title;
+      taskDescriptionInput.value = task.description || '';
+      taskDueDateInput.value = task.dueDate || '';
+      taskPrioritySelect.value = task.priority || '';
+      taskIdInput.value = taskId;
+      columnIdInput.value = task.columnId || 'unassigned';
+
+      // Show delete button for existing tasks
+      this.deleteTaskBtn.classList.remove('hidden');
+    } else {
+      // Add new task
+      modalTitle.textContent = 'Add Task';
+      taskTitleInput.value = '';
+      taskDescriptionInput.value = '';
+      taskDueDateInput.value = '';
+      taskPrioritySelect.value = '';  // No default priority
+      taskIdInput.value = '';
+      columnIdInput.value = columnId;
+
+      // Hide delete button for new tasks
+      this.deleteTaskBtn.classList.add('hidden');
+    }
+
+    this.taskModalOverlay.style.display = 'flex';
+  }
+
+  /**
+   * Close task modal
+   */
+  closeTaskModal() {
+    this.taskModalOverlay.style.display = 'none';
+    this.taskForm.reset();
+  }
+
+  /**
+   * Save task from form data
+   * @param {Event} e - The form submit event
+   */
+  saveTask(e) {
+    e.preventDefault();
+
+    const taskId = document.getElementById('task-id').value;
+    const columnId = document.getElementById('column-id').value;
+    const isUnassigned = columnId === 'unassigned';
+
+    // Get priority (may be empty string if not selected)
+    const priority = document.getElementById('task-priority').value;
+
+    const taskData = {
+      title: document.getElementById('task-title').value,
+      description: document.getElementById('task-description').value,
+      dueDate: document.getElementById('task-due-date').value,
+      priority: priority || null, // Use null if priority is empty
+      columnId: isUnassigned ? null : columnId
+    };
+
+    if (taskId) {
+      // Update existing task
+      const isCurrentlyUnassigned = this.data.unassignedTasks.some(t => t.id === taskId);
+      const isMovingToUnassigned = isUnassigned;
+      const isMovingFromUnassigned = isCurrentlyUnassigned && !isMovingToUnassigned;
+      const isMovingToColumn = !isCurrentlyUnassigned && !isMovingToUnassigned;
+
+      if (isCurrentlyUnassigned && isMovingToUnassigned) {
+        // Update task in unassigned
+        const taskIndex = this.data.unassignedTasks.findIndex(t => t.id === taskId);
+        if (taskIndex !== -1) {
+          this.data.unassignedTasks[taskIndex] = { ...this.data.unassignedTasks[taskIndex], ...taskData, id: taskId };
+        }
+      } else if (isMovingFromUnassigned) {
+        // Move from unassigned to column
+        const task = this.data.unassignedTasks.find(t => t.id === taskId);
+        if (task) {
+          const updatedTask = { ...task, ...taskData, id: taskId };
+          this.data.tasks.push(updatedTask);
+          this.data.unassignedTasks = this.data.unassignedTasks.filter(t => t.id !== taskId);
+        }
+      } else if (isMovingToUnassigned) {
+        // Move from column to unassigned
+        const task = this.data.tasks.find(t => t.id === taskId);
+        if (task) {
+          const updatedTask = { ...task, ...taskData, id: taskId, columnId: null };
+          this.data.unassignedTasks.push(updatedTask);
+          this.data.tasks = this.data.tasks.filter(t => t.id !== taskId);
+        }
+      } else if (isMovingToColumn) {
+        // Update task in column
+        const taskIndex = this.data.tasks.findIndex(t => t.id === taskId);
+        if (taskIndex !== -1) {
+          this.data.tasks[taskIndex] = { ...this.data.tasks[taskIndex], ...taskData, id: taskId };
+        }
+      }
+    } else {
+      // Add new task
+      const newTask = {
+        id: generateId(),
+        ...taskData
+      };
+
+      if (isUnassigned) {
+        this.data.unassignedTasks.push(newTask);
+      } else {
+        this.data.tasks.push(newTask);
+      }
+    }
+
+    this.saveToLocalStorage();
+    this.renderBoard();
+    this.closeTaskModal();
+  }
+
+  /**
+   * Delete task from modal
+   */
+  deleteTask() {
+    const taskId = document.getElementById('task-id').value;
+    if (taskId && confirm('Are you sure you want to delete this task?')) {
+      this.taskHandler.deleteTaskById(taskId);
+      this.closeTaskModal();
+    }
+  }
+}
+
+export default KanbanApp;

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanban Todo App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Kanban Todo App</h1>
+            <button id="add-column-btn">Add Column</button>
+        </header>
+        
+        <div class="kanban-board" id="kanban-board">
+            <!-- Columns will be added here -->
+        </div>
+        
+        <div class="unassigned-container">
+            <div class="unassigned-header">
+                <h3>Unassigned Tasks</h3>
+                <button id="add-unassigned-task">Add Task</button>
+            </div>
+            <div class="unassigned-tasks tasks" data-column-id="unassigned">
+                <!-- Unassigned tasks will be added here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Task Modal -->
+    <div class="overlay" id="task-modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modal-title">Task Details</h2>
+                <button class="modal-close" id="close-modal">&times;</button>
+            </div>
+            <form id="task-form">
+                <input type="hidden" id="task-id">
+                <input type="hidden" id="column-id">
+                
+                <div class="form-group">
+                    <label for="task-title">Title</label>
+                    <input type="text" id="task-title" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="task-description">Description</label>
+                    <textarea id="task-description"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="task-due-date">Due Date</label>
+                    <input type="date" id="task-due-date">
+                </div>
+                
+                <div class="form-group">
+                    <label for="task-priority">Priority (optional)</label>
+                    <select id="task-priority">
+                        <option value="">None</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="danger hidden" id="delete-task-btn">Delete Task</button>
+                    <button type="submit" id="save-task-btn">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Column Modal -->
+    <div class="overlay" id="column-modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="column-modal-title">Add Column</h2>
+                <button class="modal-close" id="close-column-modal">&times;</button>
+            </div>
+            <form id="column-form">
+                <input type="hidden" id="column-form-id">
+                
+                <div class="form-group">
+                    <label for="column-title">Column Title</label>
+                    <input type="text" id="column-title" required>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="submit">Save Column</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script type="module" src="initializer.js"></script>
+</body>
+</html>
