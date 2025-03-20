@@ -66,7 +66,7 @@ button.danger:hover {
 .kanban-board {
     display: flex;
     overflow-x: auto;
-    gap: 20px;
+    gap: 5px;
     padding-bottom: 20px;
     min-height: calc(100vh - 220px); /* Adjusted for unassigned section */
     align-items: flex-start;
@@ -75,20 +75,11 @@ button.danger:hover {
 
 /* Drop zones for columns at beginning and end */
 .column-drop-zone {
-    width: 20px;
-    min-width: 20px;
+    width: 5px;
     height: calc(100vh - 220px); /* Adjusted for unassigned section */
     margin: 0;
     position: relative;
     transition: background-color 0.2s ease;
-}
-
-.column-drop-zone-start {
-    margin-right: 5px;
-}
-
-.column-drop-zone-end {
-    margin-left: 5px;
 }
 
 .drag-over-drop-zone {
