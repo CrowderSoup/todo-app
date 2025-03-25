@@ -12,6 +12,11 @@ class ColumnHandler {
    * @returns {HTMLElement} The created column element
    */
   createColumnElement(column) {
+    // Skip rendering deleted/hidden columns
+    if (column.deleted || column.hidden) {
+      return document.createElement('div'); // Return empty div
+    }
+    
     const columnElement = document.createElement('div');
     columnElement.className = 'column';
     columnElement.dataset.columnId = column.id;
@@ -44,8 +49,10 @@ class ColumnHandler {
     tasksElement.className = 'tasks';
     tasksElement.dataset.columnId = column.id;
 
-    // Get tasks in this column
-    let columnTasks = this.app.data.tasks.filter(task => task.columnId === column.id);
+    // Get tasks in this column (exclude deleted/hidden tasks)
+    let columnTasks = this.app.data.tasks.filter(task => 
+      task.columnId === column.id && !task.deleted && !task.hidden
+    );
 
     // Sort tasks by due date first, then by priority
     columnTasks = this.sortTasks(columnTasks);
@@ -474,23 +481,19 @@ class ColumnHandler {
     if (!columnToDelete) return;
     const deletedOrder = columnToDelete.order;
 
+    // Mark column as deleted but keep it for database sync
+    columnToDelete.deleted = true;
+    columnToDelete.hidden = true;
+
     // Move tasks in this column to unassigned
     const columnTasks = this.app.data.tasks.filter(task => task.columnId === columnId);
-
     columnTasks.forEach(task => {
       task.columnId = null;
-      this.app.data.unassignedTasks.push(task);
     });
 
-    // Remove tasks from main tasks array
-    this.app.data.tasks = this.app.data.tasks.filter(task => task.columnId !== columnId);
-
-    // Remove column
-    this.app.data.columns = this.app.data.columns.filter(col => col.id !== columnId);
-
-    // Update order of remaining columns
+    // Update order of remaining visible columns
     this.app.data.columns.forEach(column => {
-      if (column.order > deletedOrder) {
+      if (!column.deleted && column.order > deletedOrder) {
         column.order--;
       }
     });

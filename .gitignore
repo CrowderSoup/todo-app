@@ -1,0 +1,24 @@
+# Node.js dependencies
+node_modules/
+
+# SQLite database
+*.db
+
+# Environment variables
+.env
+
+# IDE files
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Build files
+/dist
+
+# macOS files
+.DS_Store
+
+# Go binary
+todo-app

@@ -11,7 +11,13 @@
     <div class="container">
         <header>
             <h1>Kanban Todo App</h1>
-            <button id="add-column-btn">Add Column</button>
+            <div class="header-actions">
+                <div class="user-info">
+                    <span id="user-email"></span>
+                    <button id="logout-button">Logout</button>
+                </div>
+                <button id="add-column-btn">Add Column</button>
+            </div>
         </header>
         
         <!-- Collapsible Unassigned Tasks section moved above kanban board -->
@@ -94,6 +100,25 @@
                 
                 <div class="modal-actions">
                     <button type="submit">Save Column</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Login Overlay -->
+    <div class="overlay" id="login-overlay">
+        <div class="modal login-modal">
+            <div class="modal-header">
+                <h2>Login to Todo App</h2>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email-input">Email Address</label>
+                    <input type="email" id="email-input" required placeholder="Enter your email">
+                </div>
+                <div id="login-status" class="login-status"></div>
+                <div class="modal-actions">
+                    <button type="submit" id="login-button">Send Login Link</button>
                 </div>
             </form>
         </div>

@@ -528,3 +528,46 @@ button.danger:hover {
 .due-soon {
     background-color: rgba(255, 193, 7, 0.1);
 }
+
+/* Login overlay and auth styles */
+.login-modal {
+    max-width: 400px;
+}
+
+.login-status {
+    margin: 15px 0;
+    padding: 10px;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.status-info {
+    background-color: #e0f7fa;
+    color: #006064;
+}
+
+.status-success {
+    background-color: #e8f5e9;
+    color: #1b5e20;
+}
+
+.status-error {
+    background-color: #ffebee;
+    color: #b71c1c;
+}
+
+.user-info {
+    display: none;
+    align-items: center;
+    margin-right: 15px;
+}
+
+#user-email {
+    margin-right: 10px;
+    font-weight: 500;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+}
