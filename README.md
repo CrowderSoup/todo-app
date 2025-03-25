@@ -67,4 +67,4 @@ SMTP_FROM=noreply@example.com
 
 ## Screenshot
 
-![Screenshot](./screenshot.jpg)
+![Screenshot](./screenshot.png)
