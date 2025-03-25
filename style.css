@@ -25,6 +25,7 @@ body {
 .container {
     max-width: 100%;
     margin: 0 auto;
+    overflow-x: hidden;
 }
 
 header {
@@ -49,6 +50,7 @@ button {
     border-radius: 4px;
     font-size: 14px;
     transition: background-color 0.3s;
+    touch-action: manipulation;
 }
 
 button:hover {
@@ -76,7 +78,7 @@ button.danger:hover {
 /* Drop zones for columns at beginning and end */
 .column-drop-zone {
     width: 5px;
-    height: calc(100vh - 220px); /* Adjusted for unassigned section */
+    height: 100%;
     margin: 0;
     position: relative;
     transition: background-color 0.2s ease;
@@ -187,6 +189,7 @@ button.danger:hover {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     cursor: grab;
     position: relative;
+    touch-action: none;
 }
 
 .task:active {
@@ -410,6 +413,7 @@ button.danger:hover {
     margin-bottom: 20px;
     overflow: hidden;
     transition: all 0.3s ease;
+    width: 100%;
 }
 
 .unassigned-tasks {
@@ -469,15 +473,72 @@ button.danger:hover {
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
+@media (max-width: 992px) {
+    body {
+        padding: 10px;
+    }
+    
+    header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .header-actions {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+    }
+    
+    .user-info {
+        margin-right: 0;
+    }
+    
     .kanban-board {
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
+        overflow-x: hidden;
+        overflow-y: auto;
     }
     
     .column, .add-column {
         width: 100%;
-        margin-bottom: 20px;
+        min-width: 100%;
+        margin: 0 0 15px 0;
+    }
+    
+    .column-header input {
+        width: 70%;
+    }
+    
+    .modal {
+        width: 95%;
+        max-width: 95%;
+    }
+    
+    .modal-actions {
+        flex-direction: column-reverse;
+        gap: 10px;
+    }
+    
+    .modal-actions button {
+        width: 100%;
+    }
+    
+    /* Make form elements larger for touch input */
+    .form-group input,
+    .form-group textarea,
+    .form-group select,
+    button {
+        padding: 12px;
+        font-size: 16px;
+    }
+    
+    /* Ensure task delete button is easier to tap */
+    .delete-task {
+        height: 30px;
+        width: 30px;
+        font-size: 18px;
     }
 }
 
