@@ -307,8 +307,12 @@ class KanbanApp {
     const taskDescriptionInput = document.getElementById('task-description');
     const taskDueDateInput = document.getElementById('task-due-date');
     const taskPrioritySelect = document.getElementById('task-priority');
+    const taskColumnSelect = document.getElementById('task-column');
     const taskIdInput = document.getElementById('task-id');
     const columnIdInput = document.getElementById('column-id');
+
+    // Populate column dropdown
+    this.populateColumnDropdown(taskColumnSelect);
 
     if (taskId) {
       // Find the task
@@ -323,6 +327,9 @@ class KanbanApp {
       taskPrioritySelect.value = task.priority || '';
       taskIdInput.value = taskId;
       columnIdInput.value = task.columnId || 'unassigned';
+      
+      // Set the dropdown value to match the current column
+      taskColumnSelect.value = task.columnId || 'unassigned';
 
       // Show delete button for existing tasks
       this.deleteTaskBtn.classList.remove('hidden');
@@ -335,6 +342,9 @@ class KanbanApp {
       taskPrioritySelect.value = '';  // No default priority
       taskIdInput.value = '';
       columnIdInput.value = columnId;
+      
+      // Set the dropdown value to match the selected column
+      taskColumnSelect.value = columnId;
 
       // Hide delete button for new tasks
       this.deleteTaskBtn.classList.add('hidden');
@@ -352,6 +362,27 @@ class KanbanApp {
   }
 
   /**
+   * Populate the column dropdown in the task modal
+   * @param {HTMLSelectElement} selectElement - The select element to populate
+   */
+  populateColumnDropdown(selectElement) {
+    // Clear existing options except the first one (Unassigned)
+    while (selectElement.options.length > 1) {
+      selectElement.remove(1);
+    }
+    
+    // Add options for each column (only non-deleted ones)
+    this.data.columns.filter(column => !column.deleted && !column.hidden)
+      .sort((a, b) => a.order - b.order)
+      .forEach(column => {
+        const option = document.createElement('option');
+        option.value = column.id;
+        option.textContent = column.title;
+        selectElement.appendChild(option);
+      });
+  }
+
+  /**
    * Save task from form data
    * @param {Event} e - The form submit event
    */
@@ -359,8 +390,8 @@ class KanbanApp {
     e.preventDefault();
 
     const taskId = document.getElementById('task-id').value;
-    const columnId = document.getElementById('column-id').value;
-    const isUnassigned = columnId === 'unassigned';
+    const selectedColumnId = document.getElementById('task-column').value;
+    const isUnassigned = selectedColumnId === 'unassigned';
 
     // Get priority (may be empty string if not selected)
     const priority = document.getElementById('task-priority').value;
@@ -370,7 +401,7 @@ class KanbanApp {
       description: document.getElementById('task-description').value,
       dueDate: document.getElementById('task-due-date').value,
       priority: priority || null, // Use null if priority is empty
-      columnId: isUnassigned ? null : columnId
+      columnId: isUnassigned ? null : selectedColumnId
     };
 
     if (taskId) {
