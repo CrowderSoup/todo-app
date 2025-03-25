@@ -223,40 +223,64 @@ class TaskHandler {
     const columnId = container.dataset.columnId;
     if (!columnId) return;
 
-    // Find the task in either tasks or unassignedTasks
-    let task = this.app.data.tasks.find(t => t.id === taskId);
-    let isUnassigned = false;
-
-    if (!task) {
-      task = this.app.data.unassignedTasks.find(t => t.id === taskId);
-      isUnassigned = true;
-    }
-
+    // Find the task
+    const task = this.app.data.tasks.find(t => t.id === taskId);
     if (!task) return;
-
-    // Check if task is already in this column
-    if ((columnId === 'unassigned' && isUnassigned) ||
-      (columnId !== 'unassigned' && task.columnId === columnId)) {
+    
+    console.log(`Moving task ${taskId} to ${columnId === 'unassigned' ? 'unassigned' : columnId} (from ${task.columnId === null ? 'unassigned' : task.columnId})`);
+    
+    // Check if task is already in this column 
+    // Always allow moving FROM unassigned TO another column
+    if ((columnId === 'unassigned' && task.columnId === null) ||
+      (columnId !== 'unassigned' && task.columnId === columnId && task.columnId !== null)) {
+      console.log('Task already in destination column, skipping');
       return;
     }
 
-    // Handle moving between columns or to/from unassigned
+    // Update columnId - if unassigned, set to null, otherwise use columnId
     if (columnId === 'unassigned') {
-      // Move to unassigned
-      const updatedTask = { ...task, columnId: null };
-      this.app.data.unassignedTasks.push(updatedTask);
-      this.app.data.tasks = this.app.data.tasks.filter(t => t.id !== taskId);
-    } else if (isUnassigned) {
-      // Move from unassigned to column
-      const updatedTask = { ...task, columnId };
-      this.app.data.tasks.push(updatedTask);
-      this.app.data.unassignedTasks = this.app.data.unassignedTasks.filter(t => t.id !== taskId);
+      task.columnId = null;
+      console.log('Set task.columnId to null for unassigned column');
     } else {
-      // Move between columns
       task.columnId = columnId;
+      console.log(`Set task.columnId to ${columnId}`);
+    }
+    
+    // Auto-expand unassigned section if dropping to unassigned while collapsed
+    if (columnId === 'unassigned' && this.app.data.unassignedCollapsed) {
+      this.app.data.unassignedCollapsed = false;
+      this.app.applyCollapsedState();
     }
 
+    // Save changes to local storage
     this.app.saveToLocalStorage();
+    
+    // Send update to server immediately - the server is the source of truth
+    if (this.app.authManager && this.app.authManager.isAuthenticated) {
+      // Don't wait for interval - sync immediately to server
+      this.app.authManager.syncData();
+      
+      // Also send WebSocket message if available
+      if (this.app.authManager.ws && this.app.authManager.ws.readyState === WebSocket.OPEN) {
+        const message = {
+          type: 'taskMove',
+          data: {
+            taskId: taskId,
+            columnId: columnId === 'unassigned' ? null : columnId,
+            task: task
+          },
+          user: this.app.authManager.email
+        };
+        console.log('Sending WebSocket taskMove message:', message);
+        this.app.authManager.ws.send(JSON.stringify(message));
+      } else {
+        console.log('WebSocket not in OPEN state, initiating reconnect');
+        // Attempt to reconnect the WebSocket
+        this.app.authManager.setupWebSocket();
+      }
+    }
+    
+    // Render the board after sending the update
     this.app.renderBoard();
   }
 
@@ -265,24 +289,32 @@ class TaskHandler {
    * @param {string} taskId - The ID of the task to delete
    */
   confirmDeleteTask(taskId) {
-    if (confirm('Are you sure you want to delete this task?')) {
-      this.deleteTaskById(taskId);
+    if (confirm('Tasks cannot be permanently deleted due to database sync. The task will be marked as deleted instead. Continue?')) {
+      this.markTaskAsDeleted(taskId);
     }
   }
 
   /**
-   * Deletes a task by its ID
-   * @param {string} taskId - The ID of the task to delete
+   * Marks a task as deleted instead of actually deleting it
+   * @param {string} taskId - The ID of the task to mark as deleted
    */
-  deleteTaskById(taskId) {
-    // Remove from tasks array
-    this.app.data.tasks = this.app.data.tasks.filter(task => task.id !== taskId);
-
-    // Remove from unassigned tasks array
-    this.app.data.unassignedTasks = this.app.data.unassignedTasks.filter(task => task.id !== taskId);
+  markTaskAsDeleted(taskId) {
+    // Find the task
+    const taskIndex = this.app.data.tasks.findIndex(task => task.id === taskId);
+    if (taskIndex !== -1) {
+      // Add deleted flag and hide it from UI
+      this.app.data.tasks[taskIndex].deleted = true;
+      this.app.data.tasks[taskIndex].hidden = true;
+    }
 
     this.app.saveToLocalStorage();
     this.app.renderBoard();
+  }
+  
+  // deleteTaskById method is kept for backward compatibility
+  deleteTaskById(taskId) {
+    // Redirect to the new method
+    this.markTaskAsDeleted(taskId);
   }
 }
 

@@ -2,13 +2,13 @@
 import { generateId } from './utils.js';
 import TaskHandler from './task-handler.js';
 import ColumnHandler from './column-handler.js';
+import AuthManager from './auth-components.js';
 
 class KanbanApp {
   constructor() {
     this.data = {
       columns: [],
       tasks: [],
-      unassignedTasks: [],
       unassignedCollapsed: true // New property to track collapsed state
     };
 
@@ -40,6 +40,9 @@ class KanbanApp {
 
     // Bind event listeners
     this.bindEvents();
+    
+    // Initialize auth manager
+    this.authManager = new AuthManager(this);
 
     // Load data from local storage
     this.loadFromLocalStorage();
@@ -98,6 +101,7 @@ class KanbanApp {
    */
   loadFromLocalStorage() {
     const savedData = localStorage.getItem('kanbanData');
+    
     if (savedData) {
       this.data = JSON.parse(savedData);
 
@@ -106,28 +110,47 @@ class KanbanApp {
         this.data.unassignedCollapsed = true; // Default to collapsed
       }
     } else {
-      // Initialize with order if it's a fresh start
-      this.data.columns.forEach((column, index) => {
-        column.order = index;
-      });
+      // Use default empty data if nothing in localStorage
+      this.data = {
+        columns: [],
+        tasks: [],
+        unassignedCollapsed: true
+      };
     }
 
-    // Sort columns by order if they have order property
-    if (this.data.columns.length > 0 && this.data.columns[0].hasOwnProperty('order')) {
-      this.data.columns.sort((a, b) => a.order - b.order);
-    } else {
-      // Add order property if it doesn't exist
-      this.data.columns.forEach((column, index) => {
-        column.order = index;
-      });
+    // Initialize with order if needed
+    if (this.data.columns.length > 0) {
+      // Sort columns by order if they have order property
+      if (this.data.columns[0].hasOwnProperty('order')) {
+        this.data.columns.sort((a, b) => a.order - b.order);
+      } else {
+        // Add order property if it doesn't exist
+        this.data.columns.forEach((column, index) => {
+          column.order = index;
+        });
+      }
     }
   }
 
   /**
-   * Save data to localStorage
+   * Save data to localStorage and trigger sync if authenticated
    */
   saveToLocalStorage() {
     localStorage.setItem('kanbanData', JSON.stringify(this.data));
+    
+    // Trigger sync with server if authenticated
+    if (this.authManager && this.authManager.isAuthenticated) {
+      // Use debounced sync to avoid excessive server calls
+      if (this.syncTimeout) {
+        clearTimeout(this.syncTimeout);
+      }
+      
+      this.syncTimeout = setTimeout(() => {
+        // This will sync to the server and broadcast to all connected clients
+        this.authManager.syncData();
+        this.syncTimeout = null;
+      }, 300); // Reduced debounce to 300ms for more responsive real-time updates
+    }
   }
 
   /**
@@ -142,11 +165,12 @@ class KanbanApp {
     // Sort columns by order
     this.data.columns.sort((a, b) => a.order - b.order);
 
-    // Render columns
-    this.data.columns.forEach(column => {
-      const columnElement = this.columnHandler.createColumnElement(column);
-      this.boardElement.appendChild(columnElement);
-    });
+    // Render columns (only non-deleted ones)
+    this.data.columns.filter(column => !column.deleted && !column.hidden)
+      .forEach(column => {
+        const columnElement = this.columnHandler.createColumnElement(column);
+        this.boardElement.appendChild(columnElement);
+      });
 
     // Render unassigned tasks
     this.renderUnassignedTasks();
@@ -164,8 +188,17 @@ class KanbanApp {
   renderUnassignedTasks() {
     this.unassignedTasksElement.innerHTML = '';
 
-    // Get and sort unassigned tasks
-    const sortedUnassignedTasks = this.columnHandler.sortTasks(this.data.unassignedTasks);
+    // Get and sort unassigned tasks (exclude deleted/hidden tasks)
+    // Make sure to check for null or undefined columnId to catch tasks that should be in unassigned
+    const unassignedTasks = this.data.tasks.filter(task => 
+      (task.columnId === null || task.columnId === undefined) && 
+      !task.deleted && 
+      !task.hidden
+    );
+    
+    console.log(`Found ${unassignedTasks.length} unassigned tasks`);
+    
+    const sortedUnassignedTasks = this.columnHandler.sortTasks(unassignedTasks);
 
     sortedUnassignedTasks.forEach(task => {
       const taskElement = this.taskHandler.createTaskElement(task);
@@ -173,7 +206,7 @@ class KanbanApp {
     });
 
     // Update unassigned tasks count in the header
-    const taskCount = this.data.unassignedTasks.length;
+    const taskCount = unassignedTasks.length;
     if (taskCount > 0) {
       document.querySelector('.unassigned-title h3').textContent = `Unassigned Tasks (${taskCount})`;
     } else {
@@ -278,13 +311,8 @@ class KanbanApp {
     const columnIdInput = document.getElementById('column-id');
 
     if (taskId) {
-      // Find the task in either tasks or unassignedTasks
-      let task = this.data.tasks.find(t => t.id === taskId);
-
-      if (!task) {
-        task = this.data.unassignedTasks.find(t => t.id === taskId);
-      }
-
+      // Find the task
+      const task = this.data.tasks.find(t => t.id === taskId);
       if (!task) return;
 
       // Edit existing task
@@ -347,51 +375,15 @@ class KanbanApp {
 
     if (taskId) {
       // Update existing task
-      const isCurrentlyUnassigned = this.data.unassignedTasks.some(t => t.id === taskId);
-      const isMovingToUnassigned = isUnassigned;
-      const isMovingFromUnassigned = isCurrentlyUnassigned && !isMovingToUnassigned;
-      const isMovingToColumn = !isCurrentlyUnassigned && !isMovingToUnassigned;
+      const taskIndex = this.data.tasks.findIndex(t => t.id === taskId);
+      if (taskIndex !== -1) {
+        this.data.tasks[taskIndex] = { ...this.data.tasks[taskIndex], ...taskData, id: taskId };
+      }
 
-      if (isCurrentlyUnassigned && isMovingToUnassigned) {
-        // Update task in unassigned
-        const taskIndex = this.data.unassignedTasks.findIndex(t => t.id === taskId);
-        if (taskIndex !== -1) {
-          this.data.unassignedTasks[taskIndex] = { ...this.data.unassignedTasks[taskIndex], ...taskData, id: taskId };
-        }
-      } else if (isMovingFromUnassigned) {
-        // Move from unassigned to column
-        const task = this.data.unassignedTasks.find(t => t.id === taskId);
-        if (task) {
-          const updatedTask = { ...task, ...taskData, id: taskId };
-          this.data.tasks.push(updatedTask);
-          this.data.unassignedTasks = this.data.unassignedTasks.filter(t => t.id !== taskId);
-
-          // Expand unassigned section if it now has tasks
-          if (this.data.unassignedTasks.length > 0 && this.data.unassignedCollapsed) {
-            this.data.unassignedCollapsed = false;
-            this.applyCollapsedState();
-          }
-        }
-      } else if (isMovingToUnassigned) {
-        // Move from column to unassigned
-        const task = this.data.tasks.find(t => t.id === taskId);
-        if (task) {
-          const updatedTask = { ...task, ...taskData, id: taskId, columnId: null };
-          this.data.unassignedTasks.push(updatedTask);
-          this.data.tasks = this.data.tasks.filter(t => t.id !== taskId);
-
-          // Auto-expand unassigned section if it was collapsed
-          if (this.data.unassignedCollapsed) {
-            this.data.unassignedCollapsed = false;
-            this.applyCollapsedState();
-          }
-        }
-      } else if (isMovingToColumn) {
-        // Update task in column
-        const taskIndex = this.data.tasks.findIndex(t => t.id === taskId);
-        if (taskIndex !== -1) {
-          this.data.tasks[taskIndex] = { ...this.data.tasks[taskIndex], ...taskData, id: taskId };
-        }
+      // Auto-expand unassigned section if moving a task to unassigned
+      if (isUnassigned && this.data.unassignedCollapsed) {
+        this.data.unassignedCollapsed = false;
+        this.applyCollapsedState();
       }
     } else {
       // Add new task
@@ -400,16 +392,12 @@ class KanbanApp {
         ...taskData
       };
 
-      if (isUnassigned) {
-        this.data.unassignedTasks.push(newTask);
+      this.data.tasks.push(newTask);
 
-        // Auto-expand unassigned section when adding a new task
-        if (this.data.unassignedCollapsed) {
-          this.data.unassignedCollapsed = false;
-          this.applyCollapsedState();
-        }
-      } else {
-        this.data.tasks.push(newTask);
+      // Auto-expand unassigned section when adding a new unassigned task
+      if (isUnassigned && this.data.unassignedCollapsed) {
+        this.data.unassignedCollapsed = false;
+        this.applyCollapsedState();
       }
     }
 
@@ -423,8 +411,8 @@ class KanbanApp {
    */
   deleteTask() {
     const taskId = document.getElementById('task-id').value;
-    if (taskId && confirm('Are you sure you want to delete this task?')) {
-      this.taskHandler.deleteTaskById(taskId);
+    if (taskId && confirm('Tasks cannot be permanently deleted due to database sync. The task will be marked as deleted instead. Continue?')) {
+      this.taskHandler.markTaskAsDeleted(taskId);
       this.closeTaskModal();
     }
   }
