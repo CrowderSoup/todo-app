@@ -33,9 +33,9 @@ type Client struct {
 
 // WebSocketMessage is the standard message format for WebSocket communication
 type WebSocketMessage struct {
-	Type string      `json:"type"`
-	Data interface{} `json:"data"`
-	User string      `json:"user,omitempty"`
+	Type string `json:"type"`
+	Data any    `json:"data"`
+	User string `json:"user,omitempty"`
 }
 
 // ReadPump pumps messages from the WebSocket connection to the hub
@@ -80,7 +80,7 @@ func (c *Client) ReadPump() {
 				Data: map[string]string{"timestamp": time.Now().Format(time.RFC3339)},
 				User: "", // No need to set user for pong
 			}
-			
+
 			pongJSON, err := json.Marshal(pongMessage)
 			if err == nil {
 				c.send <- pongJSON
@@ -178,7 +178,7 @@ func (h *Hub) Unregister(client *Client) {
 func (h *Hub) Broadcast(message WebSocketMessage, excludeEmail string) {
 	// Set the sender's email in the message to enable proper filtering
 	message.User = excludeEmail
-	
+
 	jsonMessage, err := json.Marshal(message)
 	if err != nil {
 		log.Printf("Error marshalling WebSocket message: %v", err)
@@ -224,7 +224,7 @@ func (h *Hub) Run() {
 					log.Printf("Skipping sender: %s", client.email)
 					continue
 				}
-				
+
 				log.Printf("Sending to client: %s", client.email)
 				select {
 				case client.send <- message:
@@ -239,4 +239,3 @@ func (h *Hub) Run() {
 		}
 	}
 }
-

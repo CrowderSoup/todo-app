@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	
+
 	"github.com/gorilla/websocket"
 )
 
@@ -241,7 +241,7 @@ func (h *DataHandler) SyncData(w http.ResponseWriter, r *http.Request) {
 		Data: mergedData,
 		User: "", // Empty user to broadcast to everyone
 	}
-	
+
 	// Broadcast to all clients without filtering by email
 	h.hub.Broadcast(message, "")
 
@@ -261,7 +261,7 @@ func (h *DataHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing token", http.StatusUnauthorized)
 		return
 	}
-	
+
 	// Verify token directly since we can't use h.authenticate which expects Authorization header
 	email, err := h.authService.VerifyJWT(token)
 	if err != nil {
@@ -324,7 +324,7 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 	// Create maps for faster lookups
 	serverColumns := make(map[string]Column)
 	clientColumns := make(map[string]Column)
-	
+
 	// Track all task IDs across both client and server
 	allServerTaskIDs := make(map[string]bool)
 	allClientTaskIDs := make(map[string]bool)
@@ -344,7 +344,6 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 	// If server data still has unassignedTasks as separate array (for backward compatibility)
 	if len(serverData.UnassignedTasks) > 0 {
 		for _, task := range serverData.UnassignedTasks {
-			task.ColumnID = nil // Ensure it has no column ID
 			allServerTaskIDs[task.ID] = true
 		}
 	}
@@ -356,7 +355,6 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 	// If client data still has unassignedTasks as separate array (for backward compatibility)
 	if len(clientData.UnassignedTasks) > 0 {
 		for _, task := range clientData.UnassignedTasks {
-			task.ColumnID = nil // Ensure it has no column ID
 			allClientTaskIDs[task.ID] = true
 		}
 	}
@@ -366,7 +364,7 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 	for _, col := range clientData.Columns {
 		result.Columns = append(result.Columns, col)
 	}
-	
+
 	// Add server columns that don't exist in client
 	for id, col := range serverColumns {
 		if _, exists := clientColumns[id]; !exists {
@@ -375,7 +373,7 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 	}
 
 	// For tasks, use client state exclusively unless a task only exists on server
-	
+
 	// First, add all client tasks
 	for _, task := range clientData.Tasks {
 		// Fix for unassigned tasks: ensure empty string columnId is treated as null
@@ -389,7 +387,7 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 		}
 		result.Tasks = append(result.Tasks, task)
 	}
-	
+
 	// If client still uses unassignedTasks array, add those too
 	for _, task := range clientData.UnassignedTasks {
 		// Make sure these tasks have no columnId
@@ -397,7 +395,7 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 		log.Printf("Adding unassigned task %s from legacy unassignedTasks array", task.ID)
 		result.Tasks = append(result.Tasks, task)
 	}
-	
+
 	// Then add server tasks that don't exist in the client at all
 	// These are tasks that might have been added on another device
 	for _, task := range serverData.Tasks {
@@ -413,7 +411,7 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 			result.Tasks = append(result.Tasks, task)
 		}
 	}
-	
+
 	// If server still uses unassignedTasks array, add those too
 	for _, task := range serverData.UnassignedTasks {
 		if !allClientTaskIDs[task.ID] {
@@ -429,7 +427,7 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 		if task.ColumnID != nil {
 			columnIDVal := *task.ColumnID
 			if columnIDVal == "" || columnIDVal == "unassigned" {
-				log.Printf("Final verification: Task %s had invalid columnId (%v), setting to null", 
+				log.Printf("Final verification: Task %s had invalid columnId (%v), setting to null",
 					task.ID, task.ColumnID)
 				result.Tasks[i].ColumnID = nil
 			}
@@ -438,3 +436,4 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 
 	return result
 }
+
