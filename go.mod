@@ -1,4 +1,4 @@
-module github.com/example/todo-app
+module github.com/CrowderSoup/todo-app
 
 go 1.21
 
