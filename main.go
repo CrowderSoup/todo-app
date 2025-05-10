@@ -58,7 +58,7 @@ func main() {
 	r.HandleFunc("/api/ws", dataHandler.HandleWebSocket)
 
 	// Static file server for frontend
-	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./")))
+	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
 
 	// Setup CORS
 	c := cors.New(cors.Options{

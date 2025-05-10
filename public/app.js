@@ -1,15 +1,15 @@
 // Main application file for Kanban Todo App
-import { generateId } from './utils.js';
-import TaskHandler from './task-handler.js';
-import ColumnHandler from './column-handler.js';
-import AuthManager from './auth-components.js';
+import { generateId } from "./utils.js";
+import TaskHandler from "../task-handler.js";
+import ColumnHandler from "./column-handler.js";
+import AuthManager from "./auth-components.js";
 
 class KanbanApp {
   constructor() {
     this.data = {
       columns: [],
       tasks: [],
-      unassignedCollapsed: true // New property to track collapsed state
+      unassignedCollapsed: true, // New property to track collapsed state
     };
 
     // Initialize handlers
@@ -17,30 +17,30 @@ class KanbanApp {
     this.columnHandler = new ColumnHandler(this);
 
     // Initialize DOM elements
-    this.boardElement = document.getElementById('kanban-board');
-    this.unassignedContainer = document.querySelector('.unassigned-container');
-    this.unassignedTasksElement = document.querySelector('.unassigned-tasks');
-    this.unassignedTitleElement = document.querySelector('.unassigned-title');
-    this.collapseIcon = document.querySelector('.collapse-icon');
+    this.boardElement = document.getElementById("kanban-board");
+    this.unassignedContainer = document.querySelector(".unassigned-container");
+    this.unassignedTasksElement = document.querySelector(".unassigned-tasks");
+    this.unassignedTitleElement = document.querySelector(".unassigned-title");
+    this.collapseIcon = document.querySelector(".collapse-icon");
 
     // Initialize buttons
-    this.addColumnBtn = document.getElementById('add-column-btn');
-    this.addUnassignedTaskBtn = document.getElementById('add-unassigned-task');
+    this.addColumnBtn = document.getElementById("add-column-btn");
+    this.addUnassignedTaskBtn = document.getElementById("add-unassigned-task");
 
     // Initialize modals
-    this.taskModalOverlay = document.getElementById('task-modal-overlay');
-    this.columnModalOverlay = document.getElementById('column-modal-overlay');
-    this.closeTaskModalBtn = document.getElementById('close-modal');
-    this.closeColumnModalBtn = document.getElementById('close-column-modal');
+    this.taskModalOverlay = document.getElementById("task-modal-overlay");
+    this.columnModalOverlay = document.getElementById("column-modal-overlay");
+    this.closeTaskModalBtn = document.getElementById("close-modal");
+    this.closeColumnModalBtn = document.getElementById("close-column-modal");
 
     // Initialize forms
-    this.taskForm = document.getElementById('task-form');
-    this.columnForm = document.getElementById('column-form');
-    this.deleteTaskBtn = document.getElementById('delete-task-btn');
+    this.taskForm = document.getElementById("task-form");
+    this.columnForm = document.getElementById("column-form");
+    this.deleteTaskBtn = document.getElementById("delete-task-btn");
 
     // Bind event listeners
     this.bindEvents();
-    
+
     // Initialize auth manager
     this.authManager = new AuthManager(this);
 
@@ -59,21 +59,29 @@ class KanbanApp {
    */
   bindEvents() {
     // Column events
-    this.addColumnBtn.addEventListener('click', () => this.openColumnModal());
-    this.closeColumnModalBtn.addEventListener('click', () => this.closeColumnModal());
-    this.columnForm.addEventListener('submit', (e) => this.saveColumn(e));
+    this.addColumnBtn.addEventListener("click", () => this.openColumnModal());
+    this.closeColumnModalBtn.addEventListener("click", () =>
+      this.closeColumnModal()
+    );
+    this.columnForm.addEventListener("submit", (e) => this.saveColumn(e));
 
     // Task events
-    this.addUnassignedTaskBtn.addEventListener('click', () => this.openTaskModal('unassigned'));
-    this.closeTaskModalBtn.addEventListener('click', () => this.closeTaskModal());
-    this.taskForm.addEventListener('submit', (e) => this.saveTask(e));
-    this.deleteTaskBtn.addEventListener('click', () => this.deleteTask());
+    this.addUnassignedTaskBtn.addEventListener("click", () =>
+      this.openTaskModal("unassigned")
+    );
+    this.closeTaskModalBtn.addEventListener("click", () =>
+      this.closeTaskModal()
+    );
+    this.taskForm.addEventListener("submit", (e) => this.saveTask(e));
+    this.deleteTaskBtn.addEventListener("click", () => this.deleteTask());
 
     // Collapsible unassigned tasks
-    this.unassignedTitleElement.addEventListener('click', () => this.toggleUnassignedCollapse());
+    this.unassignedTitleElement.addEventListener("click", () =>
+      this.toggleUnassignedCollapse()
+    );
 
     // Ensure dragover events are always handled to allow drops
-    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener("dragover", (e) => e.preventDefault());
   }
 
   /**
@@ -90,9 +98,9 @@ class KanbanApp {
    */
   applyCollapsedState() {
     if (this.data.unassignedCollapsed) {
-      this.unassignedContainer.classList.add('collapsed');
+      this.unassignedContainer.classList.add("collapsed");
     } else {
-      this.unassignedContainer.classList.remove('collapsed');
+      this.unassignedContainer.classList.remove("collapsed");
     }
   }
 
@@ -100,8 +108,8 @@ class KanbanApp {
    * Load data from localStorage
    */
   loadFromLocalStorage() {
-    const savedData = localStorage.getItem('kanbanData');
-    
+    const savedData = localStorage.getItem("kanbanData");
+
     if (savedData) {
       this.data = JSON.parse(savedData);
 
@@ -114,14 +122,14 @@ class KanbanApp {
       this.data = {
         columns: [],
         tasks: [],
-        unassignedCollapsed: true
+        unassignedCollapsed: true,
       };
     }
 
     // Initialize with order if needed
     if (this.data.columns.length > 0) {
       // Sort columns by order if they have order property
-      if (this.data.columns[0].hasOwnProperty('order')) {
+      if (this.data.columns[0].hasOwnProperty("order")) {
         this.data.columns.sort((a, b) => a.order - b.order);
       } else {
         // Add order property if it doesn't exist
@@ -136,15 +144,15 @@ class KanbanApp {
    * Save data to localStorage and trigger sync if authenticated
    */
   saveToLocalStorage() {
-    localStorage.setItem('kanbanData', JSON.stringify(this.data));
-    
+    localStorage.setItem("kanbanData", JSON.stringify(this.data));
+
     // Trigger sync with server if authenticated
     if (this.authManager && this.authManager.isAuthenticated) {
       // Use debounced sync to avoid excessive server calls
       if (this.syncTimeout) {
         clearTimeout(this.syncTimeout);
       }
-      
+
       this.syncTimeout = setTimeout(() => {
         // This will sync to the server and broadcast to all connected clients
         this.authManager.syncData();
@@ -157,17 +165,18 @@ class KanbanApp {
    * Render the entire board
    */
   renderBoard() {
-    console.log('Setting up drag and drop');
+    console.log("Setting up drag and drop");
 
     // Clear existing board
-    this.boardElement.innerHTML = '';
+    this.boardElement.innerHTML = "";
 
     // Sort columns by order
     this.data.columns.sort((a, b) => a.order - b.order);
 
     // Render columns (only non-deleted ones)
-    this.data.columns.filter(column => !column.deleted && !column.hidden)
-      .forEach(column => {
+    this.data.columns
+      .filter((column) => !column.deleted && !column.hidden)
+      .forEach((column) => {
         const columnElement = this.columnHandler.createColumnElement(column);
         this.boardElement.appendChild(columnElement);
       });
@@ -186,21 +195,22 @@ class KanbanApp {
    * Render unassigned tasks
    */
   renderUnassignedTasks() {
-    this.unassignedTasksElement.innerHTML = '';
+    this.unassignedTasksElement.innerHTML = "";
 
     // Get and sort unassigned tasks (exclude deleted/hidden tasks)
     // Make sure to check for null or undefined columnId to catch tasks that should be in unassigned
-    const unassignedTasks = this.data.tasks.filter(task => 
-      (task.columnId === null || task.columnId === undefined) && 
-      !task.deleted && 
-      !task.hidden
+    const unassignedTasks = this.data.tasks.filter(
+      (task) =>
+        (task.columnId === null || task.columnId === undefined) &&
+        !task.deleted &&
+        !task.hidden
     );
-    
+
     console.log(`Found ${unassignedTasks.length} unassigned tasks`);
-    
+
     const sortedUnassignedTasks = this.columnHandler.sortTasks(unassignedTasks);
 
-    sortedUnassignedTasks.forEach(task => {
+    sortedUnassignedTasks.forEach((task) => {
       const taskElement = this.taskHandler.createTaskElement(task);
       this.unassignedTasksElement.appendChild(taskElement);
     });
@@ -208,9 +218,11 @@ class KanbanApp {
     // Update unassigned tasks count in the header
     const taskCount = unassignedTasks.length;
     if (taskCount > 0) {
-      document.querySelector('.unassigned-title h3').textContent = `Unassigned Tasks (${taskCount})`;
+      document.querySelector(".unassigned-title h3").textContent =
+        `Unassigned Tasks (${taskCount})`;
     } else {
-      document.querySelector('.unassigned-title h3').textContent = 'Unassigned Tasks';
+      document.querySelector(".unassigned-title h3").textContent =
+        "Unassigned Tasks";
     }
   }
 
@@ -230,33 +242,33 @@ class KanbanApp {
    * @param {string} columnId - The ID of the column to edit (optional)
    */
   openColumnModal(columnId = null) {
-    const modalTitle = document.getElementById('column-modal-title');
-    const columnTitleInput = document.getElementById('column-title');
-    const columnFormId = document.getElementById('column-form-id');
+    const modalTitle = document.getElementById("column-modal-title");
+    const columnTitleInput = document.getElementById("column-title");
+    const columnFormId = document.getElementById("column-form-id");
 
     if (columnId) {
       // Edit existing column
-      const column = this.data.columns.find(col => col.id === columnId);
+      const column = this.data.columns.find((col) => col.id === columnId);
       if (!column) return;
 
-      modalTitle.textContent = 'Edit Column';
+      modalTitle.textContent = "Edit Column";
       columnTitleInput.value = column.title;
       columnFormId.value = columnId;
     } else {
       // Add new column
-      modalTitle.textContent = 'Add Column';
-      columnTitleInput.value = '';
-      columnFormId.value = '';
+      modalTitle.textContent = "Add Column";
+      columnTitleInput.value = "";
+      columnFormId.value = "";
     }
 
-    this.columnModalOverlay.style.display = 'flex';
+    this.columnModalOverlay.style.display = "flex";
   }
 
   /**
    * Close column modal
    */
   closeColumnModal() {
-    this.columnModalOverlay.style.display = 'none';
+    this.columnModalOverlay.style.display = "none";
     this.columnForm.reset();
   }
 
@@ -267,25 +279,26 @@ class KanbanApp {
   saveColumn(e) {
     e.preventDefault();
 
-    const columnTitle = document.getElementById('column-title').value;
-    const columnId = document.getElementById('column-form-id').value;
+    const columnTitle = document.getElementById("column-title").value;
+    const columnId = document.getElementById("column-form-id").value;
 
     if (columnId) {
       // Update existing column
-      const column = this.data.columns.find(col => col.id === columnId);
+      const column = this.data.columns.find((col) => col.id === columnId);
       if (column) {
         column.title = columnTitle;
       }
     } else {
       // Add new column
-      const highestOrder = this.data.columns.length > 0
-        ? Math.max(...this.data.columns.map(c => c.order))
-        : -1;
+      const highestOrder =
+        this.data.columns.length > 0
+          ? Math.max(...this.data.columns.map((c) => c.order))
+          : -1;
 
       const newColumn = {
         id: generateId(),
         title: columnTitle,
-        order: highestOrder + 1
+        order: highestOrder + 1,
       };
 
       this.data.columns.push(newColumn);
@@ -302,62 +315,62 @@ class KanbanApp {
    * @param {string} taskId - The ID of the task to edit (optional)
    */
   openTaskModal(columnId, taskId = null) {
-    const modalTitle = document.getElementById('modal-title');
-    const taskTitleInput = document.getElementById('task-title');
-    const taskDescriptionInput = document.getElementById('task-description');
-    const taskDueDateInput = document.getElementById('task-due-date');
-    const taskPrioritySelect = document.getElementById('task-priority');
-    const taskColumnSelect = document.getElementById('task-column');
-    const taskIdInput = document.getElementById('task-id');
-    const columnIdInput = document.getElementById('column-id');
+    const modalTitle = document.getElementById("modal-title");
+    const taskTitleInput = document.getElementById("task-title");
+    const taskDescriptionInput = document.getElementById("task-description");
+    const taskDueDateInput = document.getElementById("task-due-date");
+    const taskPrioritySelect = document.getElementById("task-priority");
+    const taskColumnSelect = document.getElementById("task-column");
+    const taskIdInput = document.getElementById("task-id");
+    const columnIdInput = document.getElementById("column-id");
 
     // Populate column dropdown
     this.populateColumnDropdown(taskColumnSelect);
 
     if (taskId) {
       // Find the task
-      const task = this.data.tasks.find(t => t.id === taskId);
+      const task = this.data.tasks.find((t) => t.id === taskId);
       if (!task) return;
 
       // Edit existing task
-      modalTitle.textContent = 'Edit Task';
+      modalTitle.textContent = "Edit Task";
       taskTitleInput.value = task.title;
-      taskDescriptionInput.value = task.description || '';
-      taskDueDateInput.value = task.dueDate || '';
-      taskPrioritySelect.value = task.priority || '';
+      taskDescriptionInput.value = task.description || "";
+      taskDueDateInput.value = task.dueDate || "";
+      taskPrioritySelect.value = task.priority || "";
       taskIdInput.value = taskId;
-      columnIdInput.value = task.columnId || 'unassigned';
-      
+      columnIdInput.value = task.columnId || "unassigned";
+
       // Set the dropdown value to match the current column
-      taskColumnSelect.value = task.columnId || 'unassigned';
+      taskColumnSelect.value = task.columnId || "unassigned";
 
       // Show delete button for existing tasks
-      this.deleteTaskBtn.classList.remove('hidden');
+      this.deleteTaskBtn.classList.remove("hidden");
     } else {
       // Add new task
-      modalTitle.textContent = 'Add Task';
-      taskTitleInput.value = '';
-      taskDescriptionInput.value = '';
-      taskDueDateInput.value = '';
-      taskPrioritySelect.value = '';  // No default priority
-      taskIdInput.value = '';
+      modalTitle.textContent = "Add Task";
+      taskTitleInput.value = "";
+      taskDescriptionInput.value = "";
+      taskDueDateInput.value = "";
+      taskPrioritySelect.value = ""; // No default priority
+      taskIdInput.value = "";
       columnIdInput.value = columnId;
-      
+
       // Set the dropdown value to match the selected column
       taskColumnSelect.value = columnId;
 
       // Hide delete button for new tasks
-      this.deleteTaskBtn.classList.add('hidden');
+      this.deleteTaskBtn.classList.add("hidden");
     }
 
-    this.taskModalOverlay.style.display = 'flex';
+    this.taskModalOverlay.style.display = "flex";
   }
 
   /**
    * Close task modal
    */
   closeTaskModal() {
-    this.taskModalOverlay.style.display = 'none';
+    this.taskModalOverlay.style.display = "none";
     this.taskForm.reset();
   }
 
@@ -370,12 +383,13 @@ class KanbanApp {
     while (selectElement.options.length > 1) {
       selectElement.remove(1);
     }
-    
+
     // Add options for each column (only non-deleted ones)
-    this.data.columns.filter(column => !column.deleted && !column.hidden)
+    this.data.columns
+      .filter((column) => !column.deleted && !column.hidden)
       .sort((a, b) => a.order - b.order)
-      .forEach(column => {
-        const option = document.createElement('option');
+      .forEach((column) => {
+        const option = document.createElement("option");
         option.value = column.id;
         option.textContent = column.title;
         selectElement.appendChild(option);
@@ -389,26 +403,30 @@ class KanbanApp {
   saveTask(e) {
     e.preventDefault();
 
-    const taskId = document.getElementById('task-id').value;
-    const selectedColumnId = document.getElementById('task-column').value;
-    const isUnassigned = selectedColumnId === 'unassigned';
+    const taskId = document.getElementById("task-id").value;
+    const selectedColumnId = document.getElementById("task-column").value;
+    const isUnassigned = selectedColumnId === "unassigned";
 
     // Get priority (may be empty string if not selected)
-    const priority = document.getElementById('task-priority').value;
+    const priority = document.getElementById("task-priority").value;
 
     const taskData = {
-      title: document.getElementById('task-title').value,
-      description: document.getElementById('task-description').value,
-      dueDate: document.getElementById('task-due-date').value,
+      title: document.getElementById("task-title").value,
+      description: document.getElementById("task-description").value,
+      dueDate: document.getElementById("task-due-date").value,
       priority: priority || null, // Use null if priority is empty
-      columnId: isUnassigned ? null : selectedColumnId
+      columnId: isUnassigned ? null : selectedColumnId,
     };
 
     if (taskId) {
       // Update existing task
-      const taskIndex = this.data.tasks.findIndex(t => t.id === taskId);
+      const taskIndex = this.data.tasks.findIndex((t) => t.id === taskId);
       if (taskIndex !== -1) {
-        this.data.tasks[taskIndex] = { ...this.data.tasks[taskIndex], ...taskData, id: taskId };
+        this.data.tasks[taskIndex] = {
+          ...this.data.tasks[taskIndex],
+          ...taskData,
+          id: taskId,
+        };
       }
 
       // Auto-expand unassigned section if moving a task to unassigned
@@ -420,7 +438,7 @@ class KanbanApp {
       // Add new task
       const newTask = {
         id: generateId(),
-        ...taskData
+        ...taskData,
       };
 
       this.data.tasks.push(newTask);
@@ -441,8 +459,13 @@ class KanbanApp {
    * Delete task from modal
    */
   deleteTask() {
-    const taskId = document.getElementById('task-id').value;
-    if (taskId && confirm('Tasks cannot be permanently deleted due to database sync. The task will be marked as deleted instead. Continue?')) {
+    const taskId = document.getElementById("task-id").value;
+    if (
+      taskId &&
+      confirm(
+        "Tasks cannot be permanently deleted due to database sync. The task will be marked as deleted instead. Continue?"
+      )
+    ) {
       this.taskHandler.markTaskAsDeleted(taskId);
       this.closeTaskModal();
     }
