@@ -2,10 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/CrowderSoup/todo-app/database"
 	"github.com/CrowderSoup/todo-app/services"
@@ -27,37 +25,11 @@ func NewDataHandler(dataService *database.DataService, authService *services.Aut
 	}
 }
 
-// Middleware to authenticate requests
-func (h *DataHandler) authenticate(r *http.Request) (string, error) {
-	// Get token from Authorization header
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return "", fmt.Errorf("missing authorization header")
-	}
-
-	// Extract token from Bearer format
-	authParts := strings.Split(authHeader, " ")
-	if len(authParts) != 2 || authParts[0] != "Bearer" {
-		return "", fmt.Errorf("invalid authorization format")
-	}
-
-	tokenString := authParts[1]
-
-	// Verify token
-	email, err := h.authService.VerifyJWT(tokenString)
-	if err != nil {
-		return "", fmt.Errorf("invalid token: %w", err)
-	}
-
-	return email, nil
-}
-
 // GetData retrieves user data without saving client data
 func (h *DataHandler) GetData(w http.ResponseWriter, r *http.Request) {
-	// Authenticate request
-	email, err := h.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+	email, ok := r.Context().Value(emailContextKey).(string)
+	if !ok {
+		http.Error(w, "user not found", http.StatusUnauthorized)
 		return
 	}
 
@@ -79,10 +51,9 @@ func (h *DataHandler) GetData(w http.ResponseWriter, r *http.Request) {
 
 // SyncData synchronizes user data between client and server
 func (h *DataHandler) SyncData(w http.ResponseWriter, r *http.Request) {
-	// Authenticate request
-	email, err := h.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+	email, ok := r.Context().Value(emailContextKey).(string)
+	if !ok {
+		http.Error(w, "user not found", http.StatusUnauthorized)
 		return
 	}
 
@@ -140,17 +111,9 @@ func (h *DataHandler) SyncData(w http.ResponseWriter, r *http.Request) {
 
 // HandleWebSocket upgrades the HTTP connection to a WebSocket connection
 func (h *DataHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
-	// Get token from query parameter for WebSocket connection
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		http.Error(w, "Missing token", http.StatusUnauthorized)
-		return
-	}
-
-	// Verify token directly since we can't use h.authenticate which expects Authorization header
-	email, err := h.authService.VerifyJWT(token)
-	if err != nil {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
+	email, ok := r.Context().Value(emailContextKey).(string)
+	if !ok {
+		http.Error(w, "user not found", http.StatusUnauthorized)
 		return
 	}
 

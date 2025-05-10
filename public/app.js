@@ -1,6 +1,6 @@
 // Main application file for Kanban Todo App
 import { generateId } from "./utils.js";
-import TaskHandler from "../task-handler.js";
+import TaskHandler from "./task-handler.js";
 import ColumnHandler from "./column-handler.js";
 import AuthManager from "./auth-components.js";
 

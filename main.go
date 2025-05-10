@@ -38,6 +38,9 @@ func main() {
 	hub := services.NewHub()
 	go hub.Run()
 
+	// Initialize middleware
+	authMiddleware := handlers.NewAuthMiddleware(authService)
+
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService, dataService)
 	dataHandler := handlers.NewDataHandler(dataService, authService, hub)
@@ -51,14 +54,14 @@ func main() {
 	r.HandleFunc("/api/auth/magic-link", authHandler.HandleMagicLink).Methods("GET")
 
 	// Data routes (protected)
-	r.HandleFunc("/api/data/sync", dataHandler.SyncData).Methods("POST")
-	r.HandleFunc("/api/data/get", dataHandler.GetData).Methods("GET")
+	r.Handle("/api/data/sync", authMiddleware.Auth(http.HandlerFunc(dataHandler.SyncData))).Methods("POST")
+	r.Handle("/api/data/get", authMiddleware.Auth(http.HandlerFunc(dataHandler.GetData))).Methods("GET")
 
 	// WebSocket route for real-time updates
-	r.HandleFunc("/api/ws", dataHandler.HandleWebSocket)
+	r.Handle("/api/ws", authMiddleware.Auth(http.HandlerFunc(dataHandler.HandleWebSocket)))
 
 	// Static file server for frontend
-	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
+	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./public"))))
 
 	// Setup CORS
 	c := cors.New(cors.Options{

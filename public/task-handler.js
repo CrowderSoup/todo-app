@@ -1,5 +1,5 @@
 // Task handling functionality for the Kanban App
-import { formatDate } from "./public/utils.js";
+import { formatDate } from "./utils.js";
 
 class TaskHandler {
   constructor(app) {
