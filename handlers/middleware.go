@@ -44,7 +44,7 @@ func (m *AuthMiddleware) Auth(next http.Handler) http.Handler {
 		// Verify token
 		email, err := m.authService.VerifyJWT(tokenString)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("invalid token: %w", err), http.StatusUnauthorized)
+			http.Error(w, fmt.Sprintf("invalid token: %v", err), http.StatusUnauthorized)
 			return
 		}
 
