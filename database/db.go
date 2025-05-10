@@ -9,7 +9,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func initDB() (*sql.DB, error) {
+func InitDB() (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", "./todo.db")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)

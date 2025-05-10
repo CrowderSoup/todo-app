@@ -7,37 +7,40 @@ import (
 	"os"
 	"time"
 
+	"github.com/CrowderSoup/todo-app/database"
+	"github.com/CrowderSoup/todo-app/handlers"
+	"github.com/CrowderSoup/todo-app/services"
 	"github.com/gorilla/mux"
-	"github.com/rs/cors"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/rs/cors"
 )
 
 func main() {
 	// Load environment variables from .env file
-	err := LoadEnv(".env")
+	err := services.LoadEnv(".env")
 	if err != nil {
 		fmt.Printf("Error loading .env file: %v\n", err)
 		return
 	}
 
 	// Initialize database
-	db, err := initDB()
+	db, err := database.InitDB()
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
 
 	// Initialize services
-	authService := NewAuthService()
-	dataService := NewDataService(db)
+	authService := services.NewAuthService()
+	dataService := database.NewDataService(db)
 
 	// Initialize WebSocket hub
-	hub := NewHub()
+	hub := services.NewHub()
 	go hub.Run()
 
 	// Initialize handlers
-	authHandler := NewAuthHandler(authService, dataService)
-	dataHandler := NewDataHandler(dataService, authService, hub)
+	authHandler := handlers.NewAuthHandler(authService, dataService)
+	dataHandler := handlers.NewDataHandler(dataService, authService, hub)
 
 	// Setup router
 	r := mux.NewRouter()
@@ -83,4 +86,3 @@ func main() {
 	log.Printf("Server starting on port %s", port)
 	log.Fatal(server.ListenAndServe())
 }
-
