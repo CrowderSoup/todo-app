@@ -172,8 +172,6 @@ func mergeKanbanData(serverData *database.KanbanData, clientData *database.Kanba
 	// Create maps for faster lookups
 	serverColumns := make(map[string]database.Column)
 	clientColumns := make(map[string]database.Column)
-
-	// Track all task IDs across both client and server
 	allServerTaskIDs := make(map[string]bool)
 	allClientTaskIDs := make(map[string]bool)
 

@@ -57,7 +57,7 @@ func main() {
 	r.Handle("/api/data/sync", authMiddleware.Auth(http.HandlerFunc(dataHandler.SyncData))).Methods("POST")
 	r.Handle("/api/data/get", authMiddleware.Auth(http.HandlerFunc(dataHandler.GetData))).Methods("GET")
 
-	// WebSocket route for real-time updates
+	// WebSocket route for real-time updates (protected)
 	r.Handle("/api/ws", authMiddleware.Auth(http.HandlerFunc(dataHandler.HandleWebSocket)))
 
 	// Static file server for frontend
