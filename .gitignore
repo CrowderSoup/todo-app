@@ -10,6 +10,7 @@ node_modules/
 # IDE files
 .idea/
 .vscode/
+__debug*
 
 # Logs
 *.log

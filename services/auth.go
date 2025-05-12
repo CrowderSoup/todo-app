@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"crypto/rand"
@@ -111,7 +111,6 @@ func (s *AuthService) VerifyJWT(tokenString string) (string, error) {
 		}
 		return s.jwtSecret, nil
 	})
-
 	if err != nil {
 		return "", fmt.Errorf("failed to parse token: %w", err)
 	}

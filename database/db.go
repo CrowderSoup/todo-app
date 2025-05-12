@@ -1,4 +1,4 @@
-package main
+package database
 
 import (
 	"database/sql"
@@ -9,7 +9,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func initDB() (*sql.DB, error) {
+func InitDB() (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", "./todo.db")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
@@ -39,32 +39,6 @@ func initDB() (*sql.DB, error) {
 	return db, nil
 }
 
-type KanbanData struct {
-	Columns          []Column        `json:"columns"`
-	Tasks            []Task          `json:"tasks"`
-	UnassignedTasks  []Task          `json:"unassignedTasks,omitempty"` // For backward compatibility
-	UnassignedCollapsed bool          `json:"unassignedCollapsed"`
-}
-
-type Column struct {
-	ID       string `json:"id"`
-	Title    string `json:"title"`
-	Order    int    `json:"order"`
-	Deleted  bool   `json:"deleted,omitempty"`
-	Hidden   bool   `json:"hidden,omitempty"`
-}
-
-type Task struct {
-	ID          string  `json:"id"`
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	DueDate     string  `json:"dueDate"`
-	Priority    *string `json:"priority"`
-	ColumnID    *string `json:"columnId"`
-	Deleted     bool    `json:"deleted,omitempty"`
-	Hidden      bool    `json:"hidden,omitempty"`
-}
-
 // DataService handles database operations for user data
 type DataService struct {
 	db *sql.DB
@@ -83,8 +57,8 @@ func (s *DataService) GetUserData(email string) (*KanbanData, error) {
 	if err == sql.ErrNoRows {
 		// Return empty data if user has no data yet
 		return &KanbanData{
-			Columns:           []Column{},
-			Tasks:             []Task{},
+			Columns:             []Column{},
+			Tasks:               []Task{},
 			UnassignedCollapsed: true,
 		}, nil
 	}

@@ -7,37 +7,43 @@ import (
 	"os"
 	"time"
 
+	"github.com/CrowderSoup/todo-app/database"
+	"github.com/CrowderSoup/todo-app/handlers"
+	"github.com/CrowderSoup/todo-app/services"
 	"github.com/gorilla/mux"
-	"github.com/rs/cors"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/rs/cors"
 )
 
 func main() {
 	// Load environment variables from .env file
-	err := LoadEnv(".env")
+	err := services.LoadEnv(".env")
 	if err != nil {
 		fmt.Printf("Error loading .env file: %v\n", err)
 		return
 	}
 
 	// Initialize database
-	db, err := initDB()
+	db, err := database.InitDB()
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
 
 	// Initialize services
-	authService := NewAuthService()
-	dataService := NewDataService(db)
+	authService := services.NewAuthService()
+	dataService := database.NewDataService(db)
 
 	// Initialize WebSocket hub
-	hub := NewHub()
+	hub := services.NewHub()
 	go hub.Run()
 
+	// Initialize middleware
+	authMiddleware := handlers.NewAuthMiddleware(authService)
+
 	// Initialize handlers
-	authHandler := NewAuthHandler(authService, dataService)
-	dataHandler := NewDataHandler(dataService, authService, hub)
+	authHandler := handlers.NewAuthHandler(authService, dataService)
+	dataHandler := handlers.NewDataHandler(dataService, authService, hub)
 
 	// Setup router
 	r := mux.NewRouter()
@@ -48,14 +54,14 @@ func main() {
 	r.HandleFunc("/api/auth/magic-link", authHandler.HandleMagicLink).Methods("GET")
 
 	// Data routes (protected)
-	r.HandleFunc("/api/data/sync", dataHandler.SyncData).Methods("POST")
-	r.HandleFunc("/api/data/get", dataHandler.GetData).Methods("GET")
+	r.Handle("/api/data/sync", authMiddleware.Auth(http.HandlerFunc(dataHandler.SyncData))).Methods("POST")
+	r.Handle("/api/data/get", authMiddleware.Auth(http.HandlerFunc(dataHandler.GetData))).Methods("GET")
 
-	// WebSocket route for real-time updates
-	r.HandleFunc("/api/ws", dataHandler.HandleWebSocket)
+	// WebSocket route for real-time updates (protected)
+	r.Handle("/api/ws", authMiddleware.Auth(http.HandlerFunc(dataHandler.HandleWebSocket)))
 
 	// Static file server for frontend
-	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./")))
+	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./public"))))
 
 	// Setup CORS
 	c := cors.New(cors.Options{
@@ -83,4 +89,3 @@ func main() {
 	log.Printf("Server starting on port %s", port)
 	log.Fatal(server.ListenAndServe())
 }
-

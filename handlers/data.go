@@ -1,140 +1,23 @@
-package main
+package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"strings"
 
+	"github.com/CrowderSoup/todo-app/database"
+	"github.com/CrowderSoup/todo-app/services"
 	"github.com/gorilla/websocket"
 )
 
-// AuthHandler handles authentication-related endpoints
-type AuthHandler struct {
-	authService *AuthService
-	dataService *DataService
-}
-
-func NewAuthHandler(authService *AuthService, dataService *DataService) *AuthHandler {
-	return &AuthHandler{
-		authService: authService,
-		dataService: dataService,
-	}
-}
-
-// Login handles the login request (sending a magic link)
-func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	// Parse request
-	var req struct {
-		Email string `json:"email"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request format", http.StatusBadRequest)
-		return
-	}
-
-	// Validate email
-	if req.Email == "" || !strings.Contains(req.Email, "@") {
-		http.Error(w, "Invalid email address", http.StatusBadRequest)
-		return
-	}
-
-	// Get base URL from request or use default
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
-
-	// Generate magic link
-	magicLink, err := h.authService.GenerateMagicLink(req.Email, baseURL)
-	if err != nil {
-		log.Printf("Error generating magic link: %v", err)
-		http.Error(w, "Failed to generate login link", http.StatusInternalServerError)
-		return
-	}
-
-	// Return success response with magic link for development
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":    "success",
-		"message":   "Magic link has been sent",
-		"magicLink": magicLink, // For development only
-	})
-}
-
-// HandleMagicLink processes a magic link token and redirects to the frontend
-func (h *AuthHandler) HandleMagicLink(w http.ResponseWriter, r *http.Request) {
-	// Get token from query
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		http.Error(w, "Missing token", http.StatusBadRequest)
-		return
-	}
-
-	// Verify token
-	email, err := h.authService.VerifyMagicLinkToken(token)
-	if err != nil {
-		http.Error(w, "Invalid or expired token", http.StatusBadRequest)
-		return
-	}
-
-	// Create JWT token
-	jwtToken, err := h.authService.CreateJWT(email)
-	if err != nil {
-		log.Printf("Error creating JWT: %v", err)
-		http.Error(w, "Authentication error", http.StatusInternalServerError)
-		return
-	}
-
-	// Redirect to frontend with token
-	redirectURL := fmt.Sprintf("/?token=%s&email=%s", jwtToken, email)
-	http.Redirect(w, r, redirectURL, http.StatusFound)
-}
-
-// VerifyToken checks if a JWT token is valid
-func (h *AuthHandler) VerifyToken(w http.ResponseWriter, r *http.Request) {
-	// Get token from Authorization header
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		http.Error(w, "Missing authorization header", http.StatusUnauthorized)
-		return
-	}
-
-	// Extract token from Bearer format
-	authParts := strings.Split(authHeader, " ")
-	if len(authParts) != 2 || authParts[0] != "Bearer" {
-		http.Error(w, "Invalid authorization format", http.StatusUnauthorized)
-		return
-	}
-
-	tokenString := authParts[1]
-
-	// Verify token
-	email, err := h.authService.VerifyJWT(tokenString)
-	if err != nil {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
-		return
-	}
-
-	// Return success with email
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"email":  email,
-		"status": "valid",
-	})
-}
-
 // DataHandler handles data-related endpoints
 type DataHandler struct {
-	dataService *DataService
-	authService *AuthService
-	hub         *Hub
+	dataService *database.DataService
+	authService *services.AuthService
+	hub         *services.Hub
 }
 
-func NewDataHandler(dataService *DataService, authService *AuthService, hub *Hub) *DataHandler {
+func NewDataHandler(dataService *database.DataService, authService *services.AuthService, hub *services.Hub) *DataHandler {
 	return &DataHandler{
 		dataService: dataService,
 		authService: authService,
@@ -142,37 +25,11 @@ func NewDataHandler(dataService *DataService, authService *AuthService, hub *Hub
 	}
 }
 
-// Middleware to authenticate requests
-func (h *DataHandler) authenticate(r *http.Request) (string, error) {
-	// Get token from Authorization header
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return "", fmt.Errorf("missing authorization header")
-	}
-
-	// Extract token from Bearer format
-	authParts := strings.Split(authHeader, " ")
-	if len(authParts) != 2 || authParts[0] != "Bearer" {
-		return "", fmt.Errorf("invalid authorization format")
-	}
-
-	tokenString := authParts[1]
-
-	// Verify token
-	email, err := h.authService.VerifyJWT(tokenString)
-	if err != nil {
-		return "", fmt.Errorf("invalid token: %w", err)
-	}
-
-	return email, nil
-}
-
 // GetData retrieves user data without saving client data
 func (h *DataHandler) GetData(w http.ResponseWriter, r *http.Request) {
-	// Authenticate request
-	email, err := h.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+	email, ok := r.Context().Value(emailContextKey).(string)
+	if !ok {
+		http.Error(w, "user not found", http.StatusUnauthorized)
 		return
 	}
 
@@ -194,15 +51,14 @@ func (h *DataHandler) GetData(w http.ResponseWriter, r *http.Request) {
 
 // SyncData synchronizes user data between client and server
 func (h *DataHandler) SyncData(w http.ResponseWriter, r *http.Request) {
-	// Authenticate request
-	email, err := h.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+	email, ok := r.Context().Value(emailContextKey).(string)
+	if !ok {
+		http.Error(w, "user not found", http.StatusUnauthorized)
 		return
 	}
 
 	// Parse request body
-	var clientData KanbanData
+	var clientData database.KanbanData
 	if err := json.NewDecoder(r.Body).Decode(&clientData); err != nil {
 		http.Error(w, "Invalid request format", http.StatusBadRequest)
 		return
@@ -236,7 +92,7 @@ func (h *DataHandler) SyncData(w http.ResponseWriter, r *http.Request) {
 
 	// Broadcast merged data to ALL connected clients including the sender
 	// This ensures all clients have the exact same state after any sync operation
-	message := WebSocketMessage{
+	message := services.WebSocketMessage{
 		Type: "sync",
 		Data: mergedData,
 		User: "", // Empty user to broadcast to everyone
@@ -255,17 +111,9 @@ func (h *DataHandler) SyncData(w http.ResponseWriter, r *http.Request) {
 
 // HandleWebSocket upgrades the HTTP connection to a WebSocket connection
 func (h *DataHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
-	// Get token from query parameter for WebSocket connection
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		http.Error(w, "Missing token", http.StatusUnauthorized)
-		return
-	}
-
-	// Verify token directly since we can't use h.authenticate which expects Authorization header
-	email, err := h.authService.VerifyJWT(token)
-	if err != nil {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
+	email, ok := r.Context().Value(emailContextKey).(string)
+	if !ok {
+		http.Error(w, "user not found", http.StatusUnauthorized)
 		return
 	}
 
@@ -283,8 +131,8 @@ func (h *DataHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for and close any existing connections for this user
-	for client := range h.hub.clients {
-		if client.email == email {
+	for client := range h.hub.Clients {
+		if client.Email == email {
 			log.Printf("Found existing connection for user %s, keeping both connections", email)
 			// We're keeping both connections instead of closing the old one
 			// This allows a user to have multiple tabs/devices connected
@@ -292,11 +140,11 @@ func (h *DataHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Register client in the hub
-	client := &Client{
-		hub:   h.hub,
-		conn:  conn,
-		send:  make(chan []byte, 256),
-		email: email,
+	client := &services.Client{
+		Hub:   h.hub,
+		Conn:  conn,
+		Send:  make(chan []byte, 256),
+		Email: email,
 	}
 
 	h.hub.Register(client)
@@ -314,18 +162,16 @@ func (h *DataHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 // 3. Tasks and columns that are marked as deleted are preserved but hidden from UI
 // 4. Tasks that exist on the server but not in the client are preserved
 // 5. Tasks with null or empty columnId are considered "unassigned"
-func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData {
-	result := &KanbanData{
-		Columns:             []Column{},
-		Tasks:               []Task{},
+func mergeKanbanData(serverData *database.KanbanData, clientData *database.KanbanData) *database.KanbanData {
+	result := &database.KanbanData{
+		Columns:             []database.Column{},
+		Tasks:               []database.Task{},
 		UnassignedCollapsed: clientData.UnassignedCollapsed, // Use client preference for UI state
 	}
 
 	// Create maps for faster lookups
-	serverColumns := make(map[string]Column)
-	clientColumns := make(map[string]Column)
-
-	// Track all task IDs across both client and server
+	serverColumns := make(map[string]database.Column)
+	clientColumns := make(map[string]database.Column)
 	allServerTaskIDs := make(map[string]bool)
 	allClientTaskIDs := make(map[string]bool)
 
@@ -361,9 +207,7 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 
 	// Merge columns - prioritize client columns
 	// Add client columns first (they take precedence)
-	for _, col := range clientData.Columns {
-		result.Columns = append(result.Columns, col)
-	}
+	result.Columns = append(result.Columns, clientData.Columns...)
 
 	// Add server columns that don't exist in client
 	for id, col := range serverColumns {
@@ -436,4 +280,3 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 
 	return result
 }
-

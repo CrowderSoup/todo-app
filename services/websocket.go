@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"bytes"
@@ -25,10 +25,10 @@ const (
 
 // Client represents a connected WebSocket client
 type Client struct {
-	hub   *Hub
-	conn  *websocket.Conn
-	send  chan []byte
-	email string // User identifier
+	Hub   *Hub
+	Conn  *websocket.Conn
+	Send  chan []byte
+	Email string // User identifier
 }
 
 // WebSocketMessage is the standard message format for WebSocket communication
@@ -41,19 +41,19 @@ type WebSocketMessage struct {
 // ReadPump pumps messages from the WebSocket connection to the hub
 func (c *Client) ReadPump() {
 	defer func() {
-		c.hub.Unregister(c)
-		c.conn.Close()
+		c.Hub.Unregister(c)
+		c.Conn.Close()
 	}()
 
-	c.conn.SetReadLimit(maxMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.Conn.SetReadLimit(maxMessageSize)
+	c.Conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.Conn.SetPongHandler(func(string) error {
+		c.Conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 
 	for {
-		_, message, err := c.conn.ReadMessage()
+		_, message, err := c.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("WebSocket error: %v", err)
@@ -70,7 +70,7 @@ func (c *Client) ReadPump() {
 		}
 
 		// Set the user field to the client's email
-		wsMessage.User = c.email
+		wsMessage.User = c.Email
 
 		// Handle ping messages specially
 		if wsMessage.Type == "ping" {
@@ -83,7 +83,7 @@ func (c *Client) ReadPump() {
 
 			pongJSON, err := json.Marshal(pongMessage)
 			if err == nil {
-				c.send <- pongJSON
+				c.Send <- pongJSON
 			}
 			// Don't broadcast ping messages
 			continue
@@ -96,10 +96,10 @@ func (c *Client) ReadPump() {
 			continue
 		}
 
-		log.Printf("Received message from client %s: %s", c.email, wsMessage.Type)
+		log.Printf("Received message from client %s: %s", c.Email, wsMessage.Type)
 
 		// Forward to hub for broadcasting
-		c.hub.broadcast <- jsonMessage
+		c.Hub.broadcast <- jsonMessage
 	}
 }
 
@@ -108,38 +108,38 @@ func (c *Client) WritePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		c.Conn.Close()
 	}()
 
 	for {
 		select {
-		case message, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+		case message, ok := <-c.Send:
+			c.Conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// The hub closed the channel
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
-			w, err := c.conn.NextWriter(websocket.TextMessage)
+			w, err := c.Conn.NextWriter(websocket.TextMessage)
 			if err != nil {
 				return
 			}
 			w.Write(message)
 
 			// Add queued messages to the current WebSocket message
-			n := len(c.send)
+			n := len(c.Send)
 			for i := 0; i < n; i++ {
 				w.Write([]byte("\n"))
-				w.Write(<-c.send)
+				w.Write(<-c.Send)
 			}
 
 			if err := w.Close(); err != nil {
 				return
 			}
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			c.Conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
 		}
@@ -148,7 +148,7 @@ func (c *Client) WritePump() {
 
 // Hub maintains the set of active clients and broadcasts messages to the clients
 type Hub struct {
-	clients    map[*Client]bool
+	Clients    map[*Client]bool
 	broadcast  chan []byte
 	register   chan *Client
 	unregister chan *Client
@@ -160,7 +160,7 @@ func NewHub() *Hub {
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
+		Clients:    make(map[*Client]bool),
 	}
 }
 
@@ -193,13 +193,13 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case client := <-h.register:
-			h.clients[client] = true
-			log.Printf("Client connected: %s", client.email)
+			h.Clients[client] = true
+			log.Printf("Client connected: %s", client.Email)
 		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.send)
-				log.Printf("Client disconnected: %s", client.email)
+			if _, ok := h.Clients[client]; ok {
+				delete(h.Clients, client)
+				close(client.Send)
+				log.Printf("Client disconnected: %s", client.Email)
 			}
 		case message := <-h.broadcast:
 			// Get the user from the message
@@ -217,23 +217,23 @@ func (h *Hub) Run() {
 				log.Printf("Broadcasting message of type '%s' from %s to other clients", wsMessage.Type, excludeEmail)
 			}
 
-			for client := range h.clients {
+			for client := range h.Clients {
 				// If excludeEmail is empty, send to all clients
 				// Otherwise skip the sender to avoid echo
-				if excludeEmail != "" && client.email == excludeEmail {
-					log.Printf("Skipping sender: %s", client.email)
+				if excludeEmail != "" && client.Email == excludeEmail {
+					log.Printf("Skipping sender: %s", client.Email)
 					continue
 				}
 
-				log.Printf("Sending to client: %s", client.email)
+				log.Printf("Sending to client: %s", client.Email)
 				select {
-				case client.send <- message:
+				case client.Send <- message:
 					// Message sent successfully
 				default:
 					// Client's send buffer is full, assume disconnected
-					log.Printf("Client send buffer full, removing client: %s", client.email)
-					close(client.send)
-					delete(h.clients, client)
+					log.Printf("Client send buffer full, removing client: %s", client.Email)
+					close(client.Send)
+					delete(h.Clients, client)
 				}
 			}
 		}
