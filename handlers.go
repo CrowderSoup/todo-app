@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -90,7 +91,7 @@ func (h *AuthHandler) HandleMagicLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Redirect to frontend with token
-	redirectURL := fmt.Sprintf("/?token=%s&email=%s", jwtToken, email)
+	redirectURL := "/?token=" + url.QueryEscape(jwtToken) + "&email=" + url.QueryEscape(email)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
@@ -436,4 +437,3 @@ func mergeKanbanData(serverData *KanbanData, clientData *KanbanData) *KanbanData
 
 	return result
 }
-
