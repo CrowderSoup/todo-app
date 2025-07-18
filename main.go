@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -60,8 +61,12 @@ func main() {
 	// WebSocket route for real-time updates (protected)
 	r.Handle("/api/ws", authMiddleware.Auth(http.HandlerFunc(dataHandler.HandleWebSocket)))
 
-	// Static file server for frontend
-	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./public"))))
+	// Static file server for frontend using embedded assets
+	distFS, err := fs.Sub(staticFiles, "dist")
+	if err != nil {
+		log.Fatalf("Failed to load embedded files: %v", err)
+	}
+	r.PathPrefix("/").Handler(http.FileServer(http.FS(distFS)))
 
 	// Setup CORS
 	c := cors.New(cors.Options{

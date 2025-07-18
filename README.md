@@ -44,17 +44,26 @@ SMTP_FROM=noreply@example.com
 
 ### Running the Application
 
+Before compiling the Go binary, the frontend must be bundled with Vite so the
+static files can be embedded.
+
 1. Install Go dependencies:
    ```
    go mod download
    ```
 
-2. Build and run the server:
+2. Install Node dependencies and build the frontend:
+   ```
+   npm install
+   npm run build
+   ```
+
+3. Build and run the server:
    ```
    go run *.go
    ```
 
-3. Access the application in your browser:
+4. Access the application in your browser:
    ```
    http://localhost:8080
    ```

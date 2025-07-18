@@ -1,4 +1,5 @@
 # Node.js dependencies
+# Keep the node_modules directory out of version control
 node_modules/
 
 # SQLite database
